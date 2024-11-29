@@ -35,8 +35,8 @@ android {
         applicationId packageName
         minSdkVersion 27
         targetSdkVersion 35
-        versionCode 4
-        versionName "0.2.0"
+        versionCode 1004
+        versionName "multiset.0.2.0"
 
         buildConfigField "String", "GIT_HASH", "\"${getGitHash()}\""
         buildConfigField "String", "GIT_BRANCH", "\"${getGitBranch()}\""
