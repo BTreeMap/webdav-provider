@@ -37,5 +37,5 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           prerelease: true
-          files: *.apk
+          files: app/*.apk
           tag_name: ${{ steps.generate-tag.outputs.tag_name }}
