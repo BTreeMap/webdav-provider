@@ -34,14 +34,11 @@ jobs:
       - name: Generate Tag Name
         id: generate-tag
         run: |
-          ls -R > ls.txt
           tag_name=$(date +'%Y-%m-%d')-${GITHUB_SHA:0:8}
           echo "tag_name=$tag_name" >> $GITHUB_OUTPUT
       - name: Create a GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           prerelease: true
-          files: |
-            app/*.apk
-            ls.txt
+          files: app/build/outputs/apk/release/app-release.apk
           tag_name: ${{ steps.generate-tag.outputs.tag_name }}
