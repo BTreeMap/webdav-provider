@@ -79,6 +79,15 @@ android {
         buildConfig true
     }
 
+    signingConfigs {
+        create("multiset") {
+            storeFile file(System.getenv("ANDROID_KEYSTORE") ?: "/dev/null")
+            storePassword System.getenv("ANDROID_KEYSTORE_PASSWORD")
+            keyAlias System.getenv("ANDROID_KEY_ALIAS")
+            keyPassword System.getenv("ANDROID_KEY_PASSWORD")
+        }
+    }
+
     buildTypes {
         debug {
             applicationIdSuffix ".debug"
@@ -95,6 +104,8 @@ android {
             minifyEnabled true
             shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+
+            signingConfig signingConfigs.findByName("bitfire")
         }
     }
 
