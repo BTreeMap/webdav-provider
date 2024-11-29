@@ -105,7 +105,7 @@ android {
             shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
 
-            signingConfig signingConfigs.findByName("bitfire")
+            signingConfig signingConfigs.findByName("multiset")
         }
     }
 
