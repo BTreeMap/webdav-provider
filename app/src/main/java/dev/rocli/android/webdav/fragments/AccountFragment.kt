@@ -34,6 +34,8 @@ import dagger.hilt.android.AndroidEntryPoint
 import dev.rocli.android.webdav.R
 import dev.rocli.android.webdav.data.Account
 import dev.rocli.android.webdav.data.AccountDao
+import dev.rocli.android.webdav.data.CustomHeader
+import dev.rocli.android.webdav.data.HeaderProfile
 import dev.rocli.android.webdav.data.SecretString
 import dev.rocli.android.webdav.databinding.FragmentAccountBinding
 import dev.rocli.android.webdav.dialogs.Dialogs
@@ -136,6 +138,45 @@ class AccountFragment : Fragment() {
             })
         }
 
+        // Header profile dropdown setup
+        val headerProfileAdapter = ArrayAdapter.createFromResource(requireContext(), R.array.header_profile_options, R.layout.dropdown_list_item)
+        binding.dropdownHeaderProfile.setAdapter(headerProfileAdapter)
+        binding.dropdownHeaderProfile.doAfterTextChanged {
+            binding.account?.let {
+                when (it.headerProfile) {
+                    HeaderProfile.NONE -> {
+                        it.cfAccessClientId = null
+                        it.cfAccessClientSecret = null
+                        it.customHeaders = null
+                        binding.invalidateAll()
+                    }
+                    HeaderProfile.CLOUDFLARE -> {
+                        it.customHeaders = null
+                    }
+                    HeaderProfile.CUSTOM -> {
+                        it.cfAccessClientId = null
+                        it.cfAccessClientSecret = null
+                    }
+                }
+            }
+            updateHeaderProfileVisibility()
+        }
+        updateHeaderProfileVisibility()
+
+        // Custom headers button click
+        binding.btnEditCustomHeaders.setOnClickListener {
+            val headers = binding.account?.customHeaders?.toTypedArray()
+            val action = AccountFragmentDirections.actionAccountFragmentToCustomHeadersFragment(headers)
+            findNavController().navigate(action)
+        }
+
+        // Listen for results from CustomHeadersFragment
+        parentFragmentManager.setFragmentResultListener(CustomHeadersFragment.REQUEST_KEY, viewLifecycleOwner) { _, bundle ->
+            @Suppress("DEPRECATION")
+            val headers = bundle.getParcelableArray(CustomHeadersFragment.RESULT_HEADERS)
+            binding.account?.customHeaders = headers?.map { it as CustomHeader }
+        }
+
         requireActivity().onBackPressedDispatcher.addCallback(viewLifecycleOwner, BackPressedCallback())
         return binding.root
     }
@@ -225,6 +266,20 @@ class AccountFragment : Fragment() {
         binding.textLayoutPassword.visibility = visibility
     }
 
+    private fun updateHeaderProfileVisibility() {
+        val account = binding.account ?: return
+        
+        // Cloudflare fields are visible only when Cloudflare profile is selected
+        val cloudflareVisible = account.headerProfile == HeaderProfile.CLOUDFLARE
+        binding.textLayoutCfClientId.visibility = if (cloudflareVisible) View.VISIBLE else View.GONE
+        binding.textLayoutCfClientSecret.visibility = if (cloudflareVisible) View.VISIBLE else View.GONE
+        binding.tvCfHelperText.visibility = if (cloudflareVisible) View.VISIBLE else View.GONE
+        
+        // Custom headers button is visible only when Custom profile is selected
+        val customVisible = account.headerProfile == HeaderProfile.CUSTOM
+        binding.btnEditCustomHeaders.visibility = if (customVisible) View.VISIBLE else View.GONE
+    }
+
     private fun validateForm(clientCert: Boolean = false): Boolean {
         var res = true
         if (binding.textName.text.toString().isBlank()) {
@@ -271,6 +326,25 @@ class AccountFragment : Fragment() {
         } catch (e: IllegalArgumentException) {
             getInputLayout(binding.textUrl).error = getString(R.string.error_invalid_url)
             res = false
+        }
+
+        // Validate Cloudflare fields when Cloudflare profile is selected
+        if (binding.account?.headerProfile == HeaderProfile.CLOUDFLARE) {
+            if (binding.textLayoutCfClientId.isVisible && binding.textCfClientId.text.toString().isBlank()) {
+                binding.textLayoutCfClientId.error = getString(R.string.error_field_required)
+                res = false
+            } else {
+                binding.textLayoutCfClientId.error = null
+                binding.textLayoutCfClientId.isErrorEnabled = false
+            }
+
+            if (binding.textLayoutCfClientSecret.isVisible && binding.textCfClientSecret.text.toString().isBlank()) {
+                binding.textLayoutCfClientSecret.error = getString(R.string.error_field_required)
+                res = false
+            } else {
+                binding.textLayoutCfClientSecret.error = null
+                binding.textLayoutCfClientSecret.isErrorEnabled = false
+            }
         }
 
         return res
@@ -382,6 +456,26 @@ fun AutoCompleteTextView.setDropdownValueAuthType(newValue: Account.AuthType) {
 fun AutoCompleteTextView.getDropdownValueAuthType(): Account.AuthType {
     val array = this.resources!!.getStringArray(R.array.auth_type_options)
     return Account.AuthType.entries[array.indexOf(this.text.toString())]
+}
+
+@BindingAdapter("android:text")
+fun AutoCompleteTextView.setDropdownValueHeaderProfile(newValue: HeaderProfile) {
+    val array = this.resources!!.getStringArray(R.array.header_profile_options)
+    val text = array[newValue.ordinal]
+    if (this.text.toString() != text) {
+        this.setText(text, false)
+    }
+}
+
+@InverseBindingAdapter(attribute = "android:text")
+fun AutoCompleteTextView.getDropdownValueHeaderProfile(): HeaderProfile {
+    val array = this.resources!!.getStringArray(R.array.header_profile_options)
+    val index = array.indexOf(this.text.toString())
+    return if (index >= 0 && index < HeaderProfile.entries.size) {
+        HeaderProfile.entries[index]
+    } else {
+        HeaderProfile.NONE
+    }
 }
 
 @BindingAdapter("android:text")

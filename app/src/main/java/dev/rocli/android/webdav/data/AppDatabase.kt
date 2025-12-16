@@ -8,17 +8,18 @@ import androidx.room.migration.AutoMigrationSpec
 import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
-    version = 5,
+    version = 6,
     exportSchema = true,
     entities = [Account::class, CacheEntry::class],
     autoMigrations = [
         AutoMigration(from = 1, to = 2),
         AutoMigration(from = 2, to = 3),
         AutoMigration(from = 3, to = 4),
-        AutoMigration(from = 4, to = 5, spec = AppDatabase.AuthTypeMigration::class)
+        AutoMigration(from = 4, to = 5, spec = AppDatabase.AuthTypeMigration::class),
+        AutoMigration(from = 5, to = 6)
     ]
 )
-@TypeConverters(SecretStringConverter::class)
+@TypeConverters(SecretStringConverter::class, CustomHeaderListConverter::class)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun accountDao(): AccountDao
     abstract fun cacheDao(): CacheDao

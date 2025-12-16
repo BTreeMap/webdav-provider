@@ -199,6 +199,101 @@
                         android:text="@={account.clientCert}" />
                 </com.google.android.material.textfield.TextInputLayout>
 
+                <!-- Authorization Headers Section -->
+                <TextView
+                    android:id="@+id/tvAuthHeaders"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/section_authorization_headers"
+                    android:textAppearance="@style/TextAppearance.Material3.TitleMedium"
+                    android:layout_marginTop="20dp"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@+id/text_layout_certificate" />
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/layout_header_profile"
+                    style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:hint="@string/header_profile"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@+id/tvAuthHeaders">
+
+                    <AutoCompleteTextView
+                        android:id="@+id/dropdown_header_profile"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:inputType="none"
+                        android:text="@={account.headerProfile}" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <!-- Cloudflare Access fields -->
+                <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/text_layout_cf_client_id"
+                    style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="@string/cf_access_client_id"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@+id/layout_header_profile">
+
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/text_cf_client_id"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:singleLine="true"
+                        android:text="@={account.cfAccessClientId}" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/text_layout_cf_client_secret"
+                    style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="@string/cf_access_client_secret"
+                    app:endIconMode="password_toggle"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@+id/text_layout_cf_client_id">
+
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/text_cf_client_secret"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:inputType="textPassword"
+                        android:singleLine="true"
+                        android:text="@={account.cfAccessClientSecret}" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <TextView
+                    android:id="@+id/tv_cf_helper_text"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/cf_access_helper_text"
+                    android:textAppearance="@style/TextAppearance.Material3.BodySmall"
+                    android:textColor="?attr/colorOnSurfaceVariant"
+                    android:paddingTop="4dp"
+                    android:paddingBottom="4dp"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@+id/text_layout_cf_client_secret" />
+
+                <!-- Custom Headers button -->
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_edit_custom_headers"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:text="@string/custom_headers_title"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@+id/layout_header_profile" />
+
                 <TextView
                     android:id="@+id/tvAdvanced"
                     android:layout_width="match_parent"
@@ -208,7 +303,7 @@
                     android:layout_marginTop="20dp"
                     app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toBottomOf="@+id/text_layout_certificate" />
+                    app:layout_constraintTop_toBottomOf="@+id/tv_cf_helper_text" />
 
                 <com.google.android.material.checkbox.MaterialCheckBox
                     android:id="@+id/checkbox_act_as_local_storage"

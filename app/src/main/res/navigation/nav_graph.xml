@@ -41,6 +41,23 @@
             android:id="@+id/action_AccountFragment_to_MainFragment"
             app:destination="@id/MainFragment">
         </action>
+        <action
+            android:id="@+id/action_AccountFragment_to_CustomHeadersFragment"
+            app:destination="@id/CustomHeadersFragment"
+            app:enterAnim="@anim/slide_in_right"
+            app:exitAnim="@anim/slide_out_left"
+            app:popEnterAnim="@anim/slide_in_left"
+            app:popExitAnim="@anim/slide_out_right" />
+    </fragment>
+    <fragment
+        android:id="@+id/CustomHeadersFragment"
+        android:name="dev.rocli.android.webdav.fragments.CustomHeadersFragment"
+        android:label="@string/custom_headers_title"
+        tools:layout="@layout/fragment_custom_headers">
+        <argument
+            android:name="headers"
+            app:argType="dev.rocli.android.webdav.data.CustomHeader[]"
+            app:nullable="true" />
     </fragment>
     <fragment
         android:id="@+id/AboutFragment"

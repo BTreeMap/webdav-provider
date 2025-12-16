@@ -10,4 +10,10 @@
         <item>Basic</item>
         <item>Digest</item>
     </string-array>
+
+    <string-array name="header_profile_options">
+        <item>None</item>
+        <item>Cloudflare Access</item>
+        <item>Custom headers</item>
+    </string-array>
 </resources>
