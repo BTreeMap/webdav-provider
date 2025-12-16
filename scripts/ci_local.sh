@@ -62,9 +62,20 @@ if ! command -v java &> /dev/null; then
     exit 1
 fi
 
-JAVA_VERSION=$(java -version 2>&1 | head -n 1 | cut -d'"' -f2 | cut -d'.' -f1)
-if [[ "$JAVA_VERSION" -lt 17 ]]; then
-    log_warn "Java version is $JAVA_VERSION. JDK 17+ is recommended."
+# Parse Java version - handles both old (1.8.0) and new (17.0.1) formats
+JAVA_VERSION_STRING=$(java -version 2>&1 | head -n 1 | cut -d'"' -f2)
+JAVA_MAJOR=$(echo "$JAVA_VERSION_STRING" | cut -d'.' -f1)
+# Handle old format like 1.8.0 where major version is after first dot
+if [[ "$JAVA_MAJOR" == "1" ]]; then
+    JAVA_MAJOR=$(echo "$JAVA_VERSION_STRING" | cut -d'.' -f2)
+fi
+# Validate that JAVA_MAJOR is numeric
+if [[ "$JAVA_MAJOR" =~ ^[0-9]+$ ]]; then
+    if [[ "$JAVA_MAJOR" -lt 17 ]]; then
+        log_warn "Java version is $JAVA_VERSION_STRING. JDK 17+ is recommended."
+    fi
+else
+    log_warn "Could not parse Java version from: $JAVA_VERSION_STRING"
 fi
 
 if [[ "$SKIP_DOCKER" == "false" ]]; then

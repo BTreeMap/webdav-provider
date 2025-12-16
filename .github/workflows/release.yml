@@ -54,6 +54,7 @@ jobs:
           ANDROID_KEYSTORE: ${{ github.workspace }}/keystore.jks
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASS }}
           ANDROID_KEY_ALIAS: android
+          # Note: Using same password for keystore and key (common pattern for CI keystores)
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASS }}
 
       - name: Get version from tag
