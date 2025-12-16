@@ -80,11 +80,13 @@ android {
     }
 
     signingConfigs {
-        create("multiset") {
-            storeFile file(System.getenv("ANDROID_KEYSTORE"))
-            storePassword System.getenv("ANDROID_KEYSTORE_PASSWORD")
-            keyAlias System.getenv("ANDROID_KEY_ALIAS")
-            keyPassword System.getenv("ANDROID_KEY_PASSWORD")
+        if (System.getenv("ANDROID_KEYSTORE") != null) {
+            create("multiset") {
+                storeFile file(System.getenv("ANDROID_KEYSTORE"))
+                storePassword System.getenv("ANDROID_KEYSTORE_PASSWORD")
+                keyAlias System.getenv("ANDROID_KEY_ALIAS")
+                keyPassword System.getenv("ANDROID_KEY_PASSWORD")
+            }
         }
     }
 
