@@ -470,7 +470,12 @@ fun AutoCompleteTextView.setDropdownValueHeaderProfile(newValue: HeaderProfile) 
 @InverseBindingAdapter(attribute = "android:text")
 fun AutoCompleteTextView.getDropdownValueHeaderProfile(): HeaderProfile {
     val array = this.resources!!.getStringArray(R.array.header_profile_options)
-    return HeaderProfile.entries[array.indexOf(this.text.toString())]
+    val index = array.indexOf(this.text.toString())
+    return if (index >= 0 && index < HeaderProfile.entries.size) {
+        HeaderProfile.entries[index]
+    } else {
+        HeaderProfile.NONE
+    }
 }
 
 @BindingAdapter("android:text")
