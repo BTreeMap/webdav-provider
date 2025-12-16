@@ -12,6 +12,7 @@ import com.thegrizzlylabs.sardineandroid.model.Property
 import com.thegrizzlylabs.sardineandroid.model.Resourcetype
 import com.thegrizzlylabs.sardineandroid.util.EntityWithAnyElementConverter
 import dev.rocli.android.webdav.BuildConfig
+import dev.rocli.android.webdav.data.CustomHeader
 import okhttp3.*
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.logging.HttpLoggingInterceptor
@@ -48,7 +49,8 @@ class WebDavClient(
     private val creds: WebDavCredentials? = null,
     private val clientCert: String? = null,
     private val verify: Boolean = true,
-    private val noHttp2: Boolean = false
+    private val noHttp2: Boolean = false,
+    private val customHeaders: List<CustomHeader> = emptyList()
 ) {
     private val api: WebDavService = buildApiService(context, url, creds)
 
@@ -236,6 +238,10 @@ class WebDavClient(
             val logging = HttpLoggingInterceptor()
             logging.level = HttpLoggingInterceptor.Level.BASIC
             builder.addInterceptor(logging)
+        }
+        // Add custom headers interceptor for authorization headers
+        if (customHeaders.isNotEmpty()) {
+            builder.addInterceptor(CustomHeadersInterceptor(customHeaders))
         }
         if (creds != null) {
             if (creds.type == WebDavCredentials.AuthType.BASIC) {

@@ -44,7 +44,8 @@ class WebDavClientManager(private val context: Context) {
                 creds,
                 account.clientCert,
                 account.verifyCerts,
-                noHttp2 = account.protocol != Account.Protocol.AUTO
+                noHttp2 = account.protocol != Account.Protocol.AUTO,
+                customHeaders = account.getResolvedHeaders()
             )
 
             clients[account.id] = client
