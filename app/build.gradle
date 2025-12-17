@@ -26,6 +26,112 @@ def getCmdOutput = { cmd ->
 def getGitHash = { -> return getCmdOutput(["git", "rev-parse", "--short", "HEAD"]) }
 def getGitBranch = { -> return getCmdOutput(["git", "rev-parse", "--abbrev-ref", "HEAD"]) }
 
+/**
+ * 30-bit Version Code Schema (7-7-7-9 bits)
+ * 
+ * | Component | Bits | Range   | Shift Position | Description                        |
+ * |-----------|------|---------|----------------|------------------------------------|
+ * | Major     | 7    | 0-127   | << 23          | Major version                      |
+ * | Minor     | 7    | 0-127   | << 16          | Minor version                      |
+ * | Patch     | 7    | 0-127   | << 9           | Patch version                      |
+ * | Qualifier | 9    | 0-511   | << 0           | 511 for stable, 0-510 for beta     |
+ * 
+ * Stable releases use qualifier=511 to ensure they always rank higher than beta builds.
+ * Beta builds use commits-since-last-tag as the qualifier (capped at 510).
+ * 
+ * IMPORTANT: For beta builds, the patch version is incremented by 1 from the latest tag
+ * to ensure beta builds are always HIGHER than the previous stable release.
+ * 
+ * Example ordering (assuming latest tag is v5.4.3):
+ *   v5.4.3 (stable, qualifier=511) = (5 << 23) | (4 << 16) | (3 << 9) | 511
+ *   v5.4.4-beta.1 (development)    = (5 << 23) | (4 << 16) | (4 << 9) | 1   <- Higher!
+ *   v5.4.4-beta.2 (development)    = (5 << 23) | (4 << 16) | (4 << 9) | 2   <- Higher!
+ *   v5.4.4 (next stable)           = (5 << 23) | (4 << 16) | (4 << 9) | 511 <- Highest!
+ * 
+ * See docs/VERSIONING.md for detailed documentation.
+ */
+def calculateVersionCode = { int major, int minor, int patch, boolean isStable, int buildCount ->
+    def MAX_QUALIFIER = 511
+    
+    if (major > 127 || minor > 127 || patch > 127) {
+        throw new GradleException("Version components exceed allocated bit width (max 127)")
+    }
+    if (!isStable && buildCount >= MAX_QUALIFIER) {
+        throw new GradleException("Build count ${buildCount} exceeds limit of ${MAX_QUALIFIER - 1} for beta builds")
+    }
+    
+    def qualifier = isStable ? MAX_QUALIFIER : buildCount
+    return (major << 23) | (minor << 16) | (patch << 9) | qualifier
+}
+
+// Get version from environment or git tags
+// Falls back to v0.0.0 if git commands fail (e.g., no tags, shallow clone, not a git repo)
+def getVersionFromGit = { ->
+    try {
+        def tag = getCmdOutput(["git", "describe", "--tags", "--abbrev=0", "--match", "v*.*.*"])
+        // Parse version from tag (e.g., "v1.2.3" -> [1, 2, 3])
+        def matcher = tag =~ /^v(\d+)\.(\d+)\.(\d+)$/
+        if (matcher.matches()) {
+            return [
+                major: matcher[0][1] as int,
+                minor: matcher[0][2] as int,
+                patch: matcher[0][3] as int,
+                tag: tag
+            ]
+        }
+    } catch (Exception ignored) {
+        // Intentionally broad: any git failure should fall back to defaults
+    }
+    // Default fallback when no v*.*.* tag exists
+    return [major: 0, minor: 0, patch: 0, tag: "v0.0.0"]
+}
+
+// Count commits since last v*.*.* tag, returns 0 on any failure
+def getCommitsSinceTag = { ->
+    try {
+        def tag = getCmdOutput(["git", "describe", "--tags", "--abbrev=0", "--match", "v*.*.*"])
+        return getCmdOutput(["git", "rev-list", "--count", "HEAD", "^${tag}"]) as int
+    } catch (Exception ignored) {
+        // Intentionally broad: any git failure should fall back to 0
+        return 0
+    }
+}
+
+// Version configuration from environment variables or git
+// Environment variables take precedence over git-derived values (for CI)
+def envMajor = System.getenv("VERSION_MAJOR")
+def envMinor = System.getenv("VERSION_MINOR")
+def envPatch = System.getenv("VERSION_PATCH")
+def envBuildCount = System.getenv("VERSION_BUILD_COUNT")
+// VERSION_STABLE must be explicitly set to "true" for stable releases, defaults to false
+def isStable = System.getenv("VERSION_STABLE") == "true"
+
+def gitVersion = getVersionFromGit()
+def vMajor = envMajor != null ? envMajor as int : gitVersion.major
+def vMinor = envMinor != null ? envMinor as int : gitVersion.minor
+def vPatch = envPatch != null ? envPatch as int : gitVersion.patch
+def buildCount = envBuildCount != null ? envBuildCount as int : getCommitsSinceTag()
+
+// For beta builds (not stable), increment patch by 1 to ensure beta versions are
+// HIGHER than the previous stable release. This way development builds work towards
+// the next version (e.g., after v5.4.3, betas are v5.4.4-beta.X, not v5.4.3-beta.X).
+if (!isStable && buildCount > 0) {
+    vPatch = vPatch + 1
+    // Handle version overflow: if patch exceeds 127, roll over to next minor version
+    if (vPatch > 127) {
+        vPatch = 0
+        vMinor = vMinor + 1
+        if (vMinor > 127) {
+            vMinor = 0
+            vMajor = vMajor + 1
+            // Note: if major also overflows (>127), calculateVersionCode will throw an error
+        }
+    }
+}
+
+def computedVersionCode = calculateVersionCode(vMajor, vMinor, vPatch, isStable, buildCount)
+def computedVersionName = isStable ? "v${vMajor}.${vMinor}.${vPatch}" : "v${vMajor}.${vMinor}.${vPatch}-beta.${buildCount}"
+
 android {
     namespace packageName
 
@@ -35,8 +141,8 @@ android {
         applicationId packageName
         minSdkVersion 27
         targetSdkVersion 35
-        versionCode 1004
-        versionName "multiset.0.2.0"
+        versionCode computedVersionCode
+        versionName computedVersionName
 
         buildConfigField "String", "GIT_HASH", "\"${getGitHash()}\""
         buildConfigField "String", "GIT_BRANCH", "\"${getGitBranch()}\""
