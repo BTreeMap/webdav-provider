@@ -98,8 +98,5 @@
     <string name="custom_header_empty">No custom headers configured</string>
     <string name="custom_header_empty_description">Tap \"Add header\" to add a custom HTTP header.</string>
     <string name="custom_header_treat_as_secret">Treat as secret</string>
-    <string name="custom_header_enabled">Enabled</string>
     <string name="custom_header_warning_dangerous">Warning: Modifying this header may cause unexpected behavior</string>
-    <string name="error_header_name_required">Header name is required</string>
-    <string name="error_header_name_invalid">Header name contains invalid characters</string>
 </resources>

@@ -12,8 +12,8 @@
     </string-array>
 
     <string-array name="header_profile_options">
-        <item>None</item>
-        <item>Cloudflare Access</item>
-        <item>Custom headers</item>
+        <item>@string/header_profile_none</item>
+        <item>@string/header_profile_cloudflare</item>
+        <item>@string/header_profile_custom</item>
     </string-array>
 </resources>

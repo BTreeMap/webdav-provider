@@ -26,7 +26,6 @@ import org.simpleframework.xml.strategy.Strategy
 import org.simpleframework.xml.stream.Format
 import retrofit2.Response
 import retrofit2.Retrofit
-import retrofit2.converter.simplexml.SimpleXmlConverterFactory
 import java.io.IOException
 import java.io.InputStream
 import java.net.Socket
@@ -256,7 +255,7 @@ class WebDavClient(
         }
 
         val serializer = buildSerializer()
-        val converter = SimpleXmlConverterFactory.create(serializer)
+        val converter = SimpleXmlConverterFactoryCompat.create(serializer)
         return Retrofit.Builder()
             .baseUrl(url)
             .client(builder.build())
