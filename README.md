@@ -24,6 +24,8 @@ src="screenshots/screenshot4.png" width="200">](screenshots/screenshot4.png)
 
 This project is automatically tested against a variety of different WebDAV servers. The tests run in an Android emulator and connect to the WebDAV servers running in separate containers on the host machine. 
 
+### Testing
+
 To spin up the test environment:
 
 ```sh
@@ -41,3 +43,11 @@ To shut the test environment down:
 ```sh
 docker compose --project-directory tests down -v
 ```
+
+### Versioning
+
+This project uses an automatic versioning system based on git tags. See [docs/VERSIONING.md](docs/VERSIONING.md) for details on:
+
+- The 30-bit version code schema
+- How stable vs beta versions are calculated
+- CI/CD workflow configuration

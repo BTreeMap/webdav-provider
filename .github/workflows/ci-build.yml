@@ -48,6 +48,12 @@ jobs:
           # Count commits since the last tag
           BUILD_COUNT=$(git rev-list --count HEAD "^${LATEST_TAG}" 2>/dev/null || echo "0")
           
+          # For beta builds, increment patch by 1 so betas are HIGHER than previous stable
+          # Example: after v5.4.3, betas are v5.4.4-beta.X (not v5.4.3-beta.X)
+          if [[ "$BUILD_COUNT" -gt 0 ]]; then
+            PATCH=$((PATCH + 1))
+          fi
+          
           echo "VERSION_MAJOR=$MAJOR" >> $GITHUB_OUTPUT
           echo "VERSION_MINOR=$MINOR" >> $GITHUB_OUTPUT
           echo "VERSION_PATCH=$PATCH" >> $GITHUB_OUTPUT

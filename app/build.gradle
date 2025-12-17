@@ -38,6 +38,17 @@ def getGitBranch = { -> return getCmdOutput(["git", "rev-parse", "--abbrev-ref",
  * 
  * Stable releases use qualifier=511 to ensure they always rank higher than beta builds.
  * Beta builds use commits-since-last-tag as the qualifier (capped at 510).
+ * 
+ * IMPORTANT: For beta builds, the patch version is incremented by 1 from the latest tag
+ * to ensure beta builds are always HIGHER than the previous stable release.
+ * 
+ * Example ordering (assuming latest tag is v5.4.3):
+ *   v5.4.3 (stable, qualifier=511) = (5 << 23) | (4 << 16) | (3 << 9) | 511
+ *   v5.4.4-beta.1 (development)    = (5 << 23) | (4 << 16) | (4 << 9) | 1   <- Higher!
+ *   v5.4.4-beta.2 (development)    = (5 << 23) | (4 << 16) | (4 << 9) | 2   <- Higher!
+ *   v5.4.4 (next stable)           = (5 << 23) | (4 << 16) | (4 << 9) | 511 <- Highest!
+ * 
+ * See docs/VERSIONING.md for detailed documentation.
  */
 def calculateVersionCode = { int major, int minor, int patch, boolean isStable, int buildCount ->
     def MAX_QUALIFIER = 511
@@ -100,6 +111,23 @@ def vMajor = envMajor != null ? envMajor as int : gitVersion.major
 def vMinor = envMinor != null ? envMinor as int : gitVersion.minor
 def vPatch = envPatch != null ? envPatch as int : gitVersion.patch
 def buildCount = envBuildCount != null ? envBuildCount as int : getCommitsSinceTag()
+
+// For beta builds (not stable), increment patch by 1 to ensure beta versions are
+// HIGHER than the previous stable release. This way development builds work towards
+// the next version (e.g., after v5.4.3, betas are v5.4.4-beta.X, not v5.4.3-beta.X).
+if (!isStable && buildCount > 0) {
+    vPatch = vPatch + 1
+    // Handle version overflow: if patch exceeds 127, roll over to next minor version
+    if (vPatch > 127) {
+        vPatch = 0
+        vMinor = vMinor + 1
+        if (vMinor > 127) {
+            vMinor = 0
+            vMajor = vMajor + 1
+            // Note: if major also overflows (>127), calculateVersionCode will throw an error
+        }
+    }
+}
 
 def computedVersionCode = calculateVersionCode(vMajor, vMinor, vPatch, isStable, buildCount)
 def computedVersionName = isStable ? "v${vMajor}.${vMinor}.${vPatch}" : "v${vMajor}.${vMinor}.${vPatch}-beta.${buildCount}"
