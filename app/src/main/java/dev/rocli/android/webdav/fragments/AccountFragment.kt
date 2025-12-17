@@ -64,7 +64,7 @@ class AccountFragment : Fragment() {
     @Inject
     lateinit var clients: WebDavClientManager
 
-    private lateinit var menu: Menu
+    private var optionsMenu: Menu? = null
 
     private val args: AccountFragmentArgs by navArgs()
     private lateinit var binding: FragmentAccountBinding
@@ -196,7 +196,7 @@ class AccountFragment : Fragment() {
                 if (args.id == -1L) {
                     menu.findItem(R.id.action_delete).isVisible = false
                 }
-                this@AccountFragment.menu = menu
+                optionsMenu = menu
             }
 
             override fun onMenuItemSelected(item: MenuItem): Boolean {
@@ -208,7 +208,7 @@ class AccountFragment : Fragment() {
     private fun handleMenuItem(item: MenuItem): Boolean {
         val account = binding.account!!
 
-        when (item.itemId) {
+        return when (item.itemId) {
             R.id.action_save -> {
                 if (validateForm(binding.textCertificate.text.toString().isNotBlank())) {
                     updateTestStatus(true)
@@ -249,6 +249,7 @@ class AccountFragment : Fragment() {
                         }
                     }
                 }
+                true
             }
             R.id.action_delete -> {
                 Dialogs.showRemoveAccountsDialog(requireContext(), listOf(account)) { _, _ ->
@@ -257,16 +258,16 @@ class AccountFragment : Fragment() {
                     WebDavProvider.notifyChangeRoots(requireContext())
                     close()
                 }
+                true
             }
             android.R.id.home -> {
                 tryClose()
+                true
             }
             else -> {
-                return false
+                false
             }
         }
-
-        return true
     }
 
     private fun updateUserPassVisibility() {
@@ -294,6 +295,10 @@ class AccountFragment : Fragment() {
             customVisible -> binding.btnEditCustomHeaders.id
             else -> binding.layoutHeaderProfile.id
         }
+        updateAdvancedSectionAnchor(anchorId)
+    }
+
+    private fun updateAdvancedSectionAnchor(anchorId: Int) {
         val topMargin = (binding.tvAdvanced.layoutParams as ConstraintLayout.LayoutParams).topMargin
         ConstraintSet().apply {
             clone(binding.layoutForm)
@@ -404,7 +409,7 @@ class AccountFragment : Fragment() {
 
     private fun updateTestStatus(testing: Boolean) {
         setTitle(if (testing) getString(R.string.webdav_testing_connection) else args.title)
-        menu.setGroupEnabled(R.id.menu_action_group, !testing)
+        optionsMenu?.setGroupEnabled(R.id.menu_action_group, !testing)
         setIsLayoutEnabled(binding.layoutForm, !testing)
         binding.progressIndicator.visibility = if (testing) View.VISIBLE else View.INVISIBLE
     }

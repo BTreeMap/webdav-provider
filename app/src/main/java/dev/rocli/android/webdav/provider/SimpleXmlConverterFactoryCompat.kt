@@ -24,16 +24,15 @@ class SimpleXmlConverterFactoryCompat private constructor(
         return SimpleXmlResponseBodyConverter(serializer, cls, strict)
     }
 
+    @Suppress("UNCHECKED_CAST")
     override fun requestBodyConverter(
         type: Type,
         parameterAnnotations: Array<Annotation>,
         methodAnnotations: Array<Annotation>,
         retrofit: Retrofit
     ): Converter<*, RequestBody>? {
-        if (type !is Class<*>) {
-            return null
-        }
-        return SimpleXmlRequestBodyConverter<Any>(serializer)
+        val cls = type as? Class<Any> ?: return null
+        return SimpleXmlRequestBodyConverter(cls, serializer)
     }
 
     companion object {
@@ -58,11 +57,12 @@ class SimpleXmlConverterFactoryCompat private constructor(
     }
 
     private class SimpleXmlRequestBodyConverter<T : Any>(
+        private val cls: Class<T>,
         private val serializer: Serializer
     ) : Converter<T, RequestBody> {
-        override fun convert(value: T): RequestBody? {
+        override fun convert(value: T): RequestBody {
             val buffer = Buffer()
-            serializer.write(value, buffer.outputStream())
+            serializer.write(cls.cast(value), buffer.outputStream())
             return buffer.readByteString().toRequestBody(MEDIA_TYPE)
         }
     }
