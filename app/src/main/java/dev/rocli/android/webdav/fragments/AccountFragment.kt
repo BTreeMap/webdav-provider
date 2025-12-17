@@ -13,6 +13,10 @@ import android.widget.AutoCompleteTextView
 import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
+import androidx.constraintlayout.widget.ConstraintLayout
+import androidx.constraintlayout.widget.ConstraintSet
+import androidx.core.view.MenuHost
+import androidx.core.view.MenuProvider
 import androidx.core.view.children
 import androidx.core.view.isVisible
 import androidx.core.widget.doAfterTextChanged
@@ -21,6 +25,7 @@ import androidx.databinding.DataBindingUtil
 import androidx.databinding.InverseBindingAdapter
 import androidx.databinding.InverseBindingListener
 import androidx.fragment.app.Fragment
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
 import androidx.navigation.fragment.navArgs
@@ -183,19 +188,24 @@ class AccountFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        setHasOptionsMenu(true)
+        val menuHost: MenuHost = requireActivity()
+        menuHost.addMenuProvider(object : MenuProvider {
+            override fun onCreateMenu(menu: Menu, menuInflater: MenuInflater) {
+                menu.clear()
+                menuInflater.inflate(R.menu.menu_account, menu)
+                if (args.id == -1L) {
+                    menu.findItem(R.id.action_delete).isVisible = false
+                }
+                this@AccountFragment.menu = menu
+            }
+
+            override fun onMenuItemSelected(item: MenuItem): Boolean {
+                return handleMenuItem(item)
+            }
+        }, viewLifecycleOwner, Lifecycle.State.RESUMED)
     }
 
-    override fun onCreateOptionsMenu(menu: Menu, inflater: MenuInflater) {
-        menu.clear()
-        inflater.inflate(R.menu.menu_account, menu)
-        if (args.id == -1L) {
-            menu.findItem(R.id.action_delete).isVisible = false
-        }
-        this.menu = menu
-    }
-
-    override fun onOptionsItemSelected(item: MenuItem): Boolean {
+    private fun handleMenuItem(item: MenuItem): Boolean {
         val account = binding.account!!
 
         when (item.itemId) {
@@ -278,6 +288,19 @@ class AccountFragment : Fragment() {
         // Custom headers button is visible only when Custom profile is selected
         val customVisible = account.headerProfile == HeaderProfile.CUSTOM
         binding.btnEditCustomHeaders.visibility = if (customVisible) View.VISIBLE else View.GONE
+
+        val anchorId = when {
+            cloudflareVisible -> binding.tvCfHelperText.id
+            customVisible -> binding.btnEditCustomHeaders.id
+            else -> binding.layoutHeaderProfile.id
+        }
+        val topMargin = (binding.tvAdvanced.layoutParams as ConstraintLayout.LayoutParams).topMargin
+        ConstraintSet().apply {
+            clone(binding.layoutForm)
+            clear(binding.tvAdvanced.id, ConstraintSet.TOP)
+            connect(binding.tvAdvanced.id, ConstraintSet.TOP, anchorId, ConstraintSet.BOTTOM, topMargin)
+            applyTo(binding.layoutForm)
+        }
     }
 
     private fun validateForm(clientCert: Boolean = false): Boolean {

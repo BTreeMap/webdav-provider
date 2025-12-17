@@ -9,9 +9,12 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
 import androidx.activity.OnBackPressedCallback
+import androidx.core.view.MenuHost
+import androidx.core.view.MenuProvider
 import androidx.core.widget.doAfterTextChanged
 import androidx.databinding.DataBindingUtil
 import androidx.fragment.app.Fragment
+import androidx.lifecycle.Lifecycle
 import androidx.navigation.fragment.findNavController
 import androidx.navigation.fragment.navArgs
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -31,7 +34,6 @@ class CustomHeadersFragment : Fragment(), CustomHeaderAdapter.Listener {
     private val args: CustomHeadersFragmentArgs by navArgs()
     private lateinit var binding: FragmentCustomHeadersBinding
     private lateinit var adapter: CustomHeaderAdapter
-    private lateinit var menu: Menu
 
     private var hasChanges = false
 
@@ -61,27 +63,32 @@ class CustomHeadersFragment : Fragment(), CustomHeaderAdapter.Listener {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        setHasOptionsMenu(true)
+        val menuHost: MenuHost = requireActivity()
+        menuHost.addMenuProvider(object : MenuProvider {
+            override fun onCreateMenu(menu: Menu, menuInflater: MenuInflater) {
+                menu.clear()
+                menuInflater.inflate(R.menu.menu_account, menu)
+                menu.findItem(R.id.action_delete)?.isVisible = false
+            }
+
+            override fun onMenuItemSelected(item: MenuItem): Boolean {
+                return handleMenuItem(item)
+            }
+        }, viewLifecycleOwner, Lifecycle.State.RESUMED)
     }
 
-    override fun onCreateOptionsMenu(menu: Menu, inflater: MenuInflater) {
-        menu.clear()
-        inflater.inflate(R.menu.menu_account, menu)
-        menu.findItem(R.id.action_delete)?.isVisible = false
-        this.menu = menu
-    }
-
-    override fun onOptionsItemSelected(item: MenuItem): Boolean {
-        when (item.itemId) {
+    private fun handleMenuItem(item: MenuItem): Boolean {
+        return when (item.itemId) {
             R.id.action_save -> {
                 saveAndReturn()
+                true
             }
             android.R.id.home -> {
                 tryClose()
+                true
             }
-            else -> return false
+            else -> false
         }
-        return true
     }
 
     private fun saveAndReturn() {
