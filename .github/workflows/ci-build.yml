@@ -16,6 +16,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Fetch all history for version calculation
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -24,8 +26,42 @@ jobs:
           java-version: '17'
           cache: gradle
 
+      - name: Calculate version
+        id: version
+        run: |
+          # Get the latest v*.*.* tag
+          LATEST_TAG=$(git describe --tags --abbrev=0 --match "v*.*.*" 2>/dev/null || echo "v0.0.0")
+          echo "Latest tag: $LATEST_TAG"
+          
+          # Parse version components
+          VERSION_REGEX="^v([0-9]+)\.([0-9]+)\.([0-9]+)$"
+          if [[ $LATEST_TAG =~ $VERSION_REGEX ]]; then
+            MAJOR="${BASH_REMATCH[1]}"
+            MINOR="${BASH_REMATCH[2]}"
+            PATCH="${BASH_REMATCH[3]}"
+          else
+            MAJOR=0
+            MINOR=0
+            PATCH=0
+          fi
+          
+          # Count commits since the last tag
+          BUILD_COUNT=$(git rev-list --count HEAD "^${LATEST_TAG}" 2>/dev/null || echo "0")
+          
+          echo "VERSION_MAJOR=$MAJOR" >> $GITHUB_OUTPUT
+          echo "VERSION_MINOR=$MINOR" >> $GITHUB_OUTPUT
+          echo "VERSION_PATCH=$PATCH" >> $GITHUB_OUTPUT
+          echo "VERSION_BUILD_COUNT=$BUILD_COUNT" >> $GITHUB_OUTPUT
+          echo "Version: v${MAJOR}.${MINOR}.${PATCH}-beta.${BUILD_COUNT}"
+
       - name: Build debug APK
         run: ./gradlew --no-daemon :app:assembleDebug
+        env:
+          VERSION_MAJOR: ${{ steps.version.outputs.VERSION_MAJOR }}
+          VERSION_MINOR: ${{ steps.version.outputs.VERSION_MINOR }}
+          VERSION_PATCH: ${{ steps.version.outputs.VERSION_PATCH }}
+          VERSION_BUILD_COUNT: ${{ steps.version.outputs.VERSION_BUILD_COUNT }}
+          VERSION_STABLE: 'false'
 
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
