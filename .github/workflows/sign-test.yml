@@ -1,0 +1,85 @@
+# Sign Test Workflow - Signs untrusted PR builds
+#
+# This workflow signs PR builds using the ci:test environment.
+# It is triggered by completion of the Build workflow and runs the version
+# of the workflow defined in 'master', not the PR branch, ensuring security.
+#
+# Security: Does NOT checkout code from the PR. Only downloads and signs artifacts.
+#
+# The signed APK is uploaded as an artifact for testers to download and install.
+# WARNING: These binaries are signed with a TEST key, NOT the production key.
+# They are explicitly UNTRUSTED and should only be used for testing purposes.
+
+name: Sign Test APK
+
+on:
+  workflow_run:
+    workflows: ["Build"]
+    types: [completed]
+
+jobs:
+  sign-test:
+    name: Sign Untrusted Test APK
+    # Only run for PRs that completed successfully
+    if: >
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    environment: ci:test
+    permissions:
+      actions: read
+      contents: read
+
+    steps:
+      - name: Download Unsigned Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: unsigned-untrusted-apk
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: ./unsigned
+
+      - name: Set up JDK 17 (for apksigner)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Sign Test APK
+        run: |
+          # 1. Recover keystore from base64 secret
+          echo "${{ secrets.ANDROID_KEYSTORE_B64 }}" | base64 -d > test.jks
+
+          # 2. Find the unsigned APK
+          APK_PATH=$(find ./unsigned -name "*.apk" | head -n 1)
+          if [[ -z "$APK_PATH" ]]; then
+            echo "Error: No APK found in artifacts"
+            exit 1
+          fi
+          echo "Signing: $APK_PATH"
+
+          # 3. Find apksigner
+          APKSIGNER=$(find $ANDROID_SDK_ROOT/build-tools -name apksigner | sort -V | tail -n1)
+          echo "Using apksigner: $APKSIGNER"
+
+          # 4. Sign the APK
+          $APKSIGNER sign \
+            --ks test.jks \
+            --ks-pass "pass:${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" \
+            --key-pass "pass:${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" \
+            --ks-key-alias "${{ vars.ANDROID_KEY_ALIAS }}" \
+            --out "webdav-test-signed.apk" \
+            "$APK_PATH"
+
+          # 5. Verify signature
+          $APKSIGNER verify --verbose "webdav-test-signed.apk"
+
+          # 6. Cleanup keystore
+          rm test.jks
+
+      - name: Upload Signed Test APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: webdav-test-signed-apk
+          path: webdav-test-signed.apk
+          retention-days: 30

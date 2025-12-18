@@ -1,15 +1,26 @@
 <img align="left" width="80" height="80" src="app/src/main/res/mipmap-xxxhdpi/ic_launcher.webp"
 alt="App icon">
 
-# WebDAV Provider [![build](https://github.com/alexbakker/webdav-provider/actions/workflows/build.yaml/badge.svg)](https://github.com/alexbakker/webdav-provider/actions/workflows/build.yaml)
+# WebDAV Provider [![Build](https://github.com/BTreeMap/WebDAV/actions/workflows/build.yml/badge.svg)](https://github.com/BTreeMap/WebDAV/actions/workflows/build.yml)
 
 __WebDAV Provider__ is an Android app that can expose WebDAV through Android's
 Storage Access Framework (SAF). This allows you to access your WebDAV storage
 through Android's built-in file explorer, as well as other apps on your device.
 
-[<img height=80 alt="Get it on Google Play"
-src="https://play.google.com/intl/en_us/badges/images/generic/en-play-badge.png"
-/>](https://play.google.com/store/apps/details?id=dev.rocli.android.webdav)
+## Fork Information
+
+> **⚠️ This is a fork of [alexbakker/webdav-provider](https://github.com/alexbakker/webdav-provider)**
+>
+> This project has been forked and significantly modified. We use a **different package name** (`org.joefang.webdav` instead of `dev.rocli.android.webdav`) and **do not maintain compatibility** with the original project. Updates and features may diverge from the upstream project.
+>
+> If you're looking for the original project, please visit [alexbakker/webdav-provider](https://github.com/alexbakker/webdav-provider).
+
+### Key Differences from Upstream
+
+- **Package Name**: `org.joefang.webdav` (original: `dev.rocli.android.webdav`)
+- **Separate Signing Keys**: Test builds use a different signing key than production releases
+- **No Backward Compatibility**: This fork may introduce breaking changes
+- **Independent Development**: Features and bug fixes may not be merged back upstream
 
 ## Screenshots
 
@@ -49,5 +60,5 @@ docker compose --project-directory tests down -v
 This project uses an automatic versioning system based on git tags. See [docs/VERSIONING.md](docs/VERSIONING.md) for details on:
 
 - The 30-bit version code schema
-- How stable vs beta versions are calculated
-- CI/CD workflow configuration
+- How stable vs development versions are calculated
+- CI/CD workflow configuration and signing architecture

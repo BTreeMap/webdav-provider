@@ -1,0 +1,112 @@
+# Sign Release Workflow - Signs production builds (pre-releases and releases)
+#
+# This workflow signs builds from the main branch and tags using the ci:release environment.
+# It is triggered by completion of the Build workflow for trusted branches.
+#
+# - Pre-releases (main branch): Creates a GitHub pre-release
+# - Releases (v*.*.* tags): Creates a GitHub release
+#
+# Environment: ci:release (production key, with protection rules)
+
+name: Sign and Publish Release
+
+on:
+  workflow_run:
+    workflows: ["Build"]
+    types: [completed]
+
+jobs:
+  sign-release:
+    name: Sign and Publish
+    # Only run for main branch or tags that completed successfully
+    if: >
+      github.event.workflow_run.conclusion == 'success' &&
+      (github.event.workflow_run.head_branch == 'master' ||
+       startsWith(github.event.workflow_run.head_branch, 'v'))
+    runs-on: ubuntu-latest
+    environment: ci:release
+    permissions:
+      contents: write
+      actions: read
+
+    steps:
+      - name: Download Unsigned Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: unsigned-prod-apk
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: ./unsigned
+
+      - name: Set up JDK 17 (for apksigner)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Determine Release Type
+        id: release-type
+        run: |
+          BRANCH="${{ github.event.workflow_run.head_branch }}"
+          if [[ "$BRANCH" == v* ]]; then
+            echo "is_stable=true" >> $GITHUB_OUTPUT
+            echo "tag_name=$BRANCH" >> $GITHUB_OUTPUT
+            echo "release_name=Release $BRANCH" >> $GITHUB_OUTPUT
+          else
+            # Generate a pre-release tag based on date and run ID
+            TAG="pre-$(date +%Y%m%d)-${{ github.event.workflow_run.run_number }}"
+            echo "is_stable=false" >> $GITHUB_OUTPUT
+            echo "tag_name=$TAG" >> $GITHUB_OUTPUT
+            echo "release_name=Pre-release $TAG" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Sign Prod APK
+        run: |
+          # 1. Recover keystore from base64 secret
+          echo "${{ secrets.ANDROID_KEYSTORE_B64 }}" | base64 -d > release.jks
+
+          # 2. Find the unsigned APK
+          APK_PATH=$(find ./unsigned -name "*.apk" | head -n 1)
+          if [[ -z "$APK_PATH" ]]; then
+            echo "Error: No APK found in artifacts"
+            exit 1
+          fi
+          echo "Signing: $APK_PATH"
+
+          # 3. Find apksigner
+          APKSIGNER=$(find $ANDROID_SDK_ROOT/build-tools -name apksigner | sort -V | tail -n1)
+          echo "Using apksigner: $APKSIGNER"
+
+          # 4. Determine output filename
+          if [[ "${{ steps.release-type.outputs.is_stable }}" == "true" ]]; then
+            OUTPUT_NAME="webdav-${{ steps.release-type.outputs.tag_name }}.apk"
+          else
+            OUTPUT_NAME="webdav-prerelease-${{ steps.release-type.outputs.tag_name }}.apk"
+          fi
+
+          # 5. Sign the APK
+          $APKSIGNER sign \
+            --ks release.jks \
+            --ks-pass "pass:${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" \
+            --key-pass "pass:${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" \
+            --ks-key-alias "${{ vars.ANDROID_KEY_ALIAS }}" \
+            --out "$OUTPUT_NAME" \
+            "$APK_PATH"
+
+          # 6. Verify signature
+          $APKSIGNER verify --verbose "$OUTPUT_NAME"
+
+          # 7. Set output for next step
+          echo "SIGNED_APK=$OUTPUT_NAME" >> $GITHUB_ENV
+
+          # 8. Cleanup keystore
+          rm release.jks
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ env.SIGNED_APK }}
+          tag_name: ${{ steps.release-type.outputs.tag_name }}
+          name: ${{ steps.release-type.outputs.release_name }}
+          prerelease: ${{ steps.release-type.outputs.is_stable != 'true' }}
+          generate_release_notes: true

@@ -1,77 +1,31 @@
-name: CI - Build (Unsigned)
+# DEPRECATED: This workflow has been replaced by the new CI/CD architecture:
+# - build.yml (unsigned builds for all environments)
+# - sign-test.yml (signs untrusted PR builds with test key)
+# - sign-release.yml (signs production builds with release key)
+#
+# This workflow is kept temporarily for backward compatibility and will be removed.
+# See docs/VERSIONING.md for the new signing architecture documentation.
+
+name: CI - Build (Unsigned) [DEPRECATED]
 
 on:
-  pull_request:
-    branches: [master]
-  push:
-    branches: [master]
+  # Disabled - replaced by build.yml
+  workflow_dispatch: {}
 
 permissions:
   contents: read
 
 jobs:
   build:
-    name: Build Unsigned APK
+    name: Build Unsigned APK (DEPRECATED)
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0  # Fetch all history for version calculation
-
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '17'
-          cache: gradle
-
-      - name: Calculate version
-        id: version
+      - name: Notice
         run: |
-          # Get the latest v*.*.* tag
-          LATEST_TAG=$(git describe --tags --abbrev=0 --match "v*.*.*" 2>/dev/null || echo "v0.0.0")
-          echo "Latest tag: $LATEST_TAG"
-          
-          # Parse version components
-          VERSION_REGEX="^v([0-9]+)\.([0-9]+)\.([0-9]+)$"
-          if [[ $LATEST_TAG =~ $VERSION_REGEX ]]; then
-            MAJOR="${BASH_REMATCH[1]}"
-            MINOR="${BASH_REMATCH[2]}"
-            PATCH="${BASH_REMATCH[3]}"
-          else
-            MAJOR=0
-            MINOR=0
-            PATCH=0
-          fi
-          
-          # Count commits since the last tag
-          BUILD_COUNT=$(git rev-list --count HEAD "^${LATEST_TAG}" 2>/dev/null || echo "0")
-          
-          # For beta builds, increment patch by 1 so betas are HIGHER than previous stable
-          # Example: after v5.4.3, betas are v5.4.4-beta.X (not v5.4.3-beta.X)
-          if [[ "$BUILD_COUNT" -gt 0 ]]; then
-            PATCH=$((PATCH + 1))
-          fi
-          
-          echo "VERSION_MAJOR=$MAJOR" >> $GITHUB_OUTPUT
-          echo "VERSION_MINOR=$MINOR" >> $GITHUB_OUTPUT
-          echo "VERSION_PATCH=$PATCH" >> $GITHUB_OUTPUT
-          echo "VERSION_BUILD_COUNT=$BUILD_COUNT" >> $GITHUB_OUTPUT
-          echo "Version: v${MAJOR}.${MINOR}.${PATCH}-beta.${BUILD_COUNT}"
-
-      - name: Build debug APK
-        run: ./gradlew --no-daemon :app:assembleDebug
-        env:
-          VERSION_MAJOR: ${{ steps.version.outputs.VERSION_MAJOR }}
-          VERSION_MINOR: ${{ steps.version.outputs.VERSION_MINOR }}
-          VERSION_PATCH: ${{ steps.version.outputs.VERSION_PATCH }}
-          VERSION_BUILD_COUNT: ${{ steps.version.outputs.VERSION_BUILD_COUNT }}
-          VERSION_STABLE: 'false'
-
-      - name: Upload debug APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: app-debug
-          path: app/build/outputs/apk/debug/app-debug.apk
-          retention-days: 30
+          echo "This workflow is deprecated and has been replaced by:"
+          echo "  - build.yml (unsigned builds)"
+          echo "  - sign-test.yml (test signing)"
+          echo "  - sign-release.yml (production signing)"
+          echo ""
+          echo "Please update your references to use the new workflows."
+          exit 1

@@ -27,7 +27,7 @@ jobs:
           cache: gradle
 
       - name: Run unit tests
-        run: ./gradlew --no-daemon testDebugUnitTest
+        run: ./gradlew --no-daemon testProdDebugUnitTest
 
       - name: Upload test reports
         if: failure()
@@ -54,7 +54,7 @@ jobs:
           cache: gradle
 
       - name: Run lint
-        run: ./gradlew --no-daemon lint
+        run: ./gradlew --no-daemon lintProdDebug
 
       - name: Upload lint reports
         if: failure()
