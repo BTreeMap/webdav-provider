@@ -1,118 +1,30 @@
-name: Release - Sign and Publish
+# DEPRECATED: This workflow has been replaced by the new CI/CD architecture:
+# - build.yml (unsigned builds for all environments)
+# - sign-release.yml (signs production builds with release key)
+#
+# This workflow is kept temporarily for backward compatibility.
+# See docs/VERSIONING.md for the new signing architecture documentation.
+
+name: Release - Sign and Publish [DEPRECATED]
 
 on:
-  push:
-    tags: ['v*.*.*']
+  # Disabled - replaced by build.yml + sign-release.yml
   workflow_dispatch: {}
 
 permissions:
   contents: read
 
 jobs:
-  verify:
-    name: Verify Tests Pass
+  deprecated:
+    name: Deprecated Workflow
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0  # Fetch all history for version calculation
-
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '17'
-          cache: gradle
-
-      - name: Calculate version
-        id: version
+      - name: Notice
         run: |
-          if [[ "${{ github.ref_type }}" == "tag" ]]; then
-            TAG="${{ github.ref_name }}"
-          else
-            # For workflow_dispatch, get the latest tag
-            TAG=$(git describe --tags --abbrev=0 --match "v*.*.*" 2>/dev/null || echo "v0.0.0")
-          fi
-          echo "Tag: $TAG"
-          
-          # Parse version components
-          VERSION_REGEX="^v([0-9]+)\.([0-9]+)\.([0-9]+)$"
-          if [[ $TAG =~ $VERSION_REGEX ]]; then
-            MAJOR="${BASH_REMATCH[1]}"
-            MINOR="${BASH_REMATCH[2]}"
-            PATCH="${BASH_REMATCH[3]}"
-          else
-            echo "Error: Tag $TAG does not match v*.*.* pattern"
-            exit 1
-          fi
-          
-          echo "VERSION_MAJOR=$MAJOR" >> $GITHUB_OUTPUT
-          echo "VERSION_MINOR=$MINOR" >> $GITHUB_OUTPUT
-          echo "VERSION_PATCH=$PATCH" >> $GITHUB_OUTPUT
-          echo "Stable Version: v${MAJOR}.${MINOR}.${PATCH}"
-
-      - name: Run tests (release gate)
-        run: ./gradlew --no-daemon testDebugUnitTest lint
-        env:
-          VERSION_MAJOR: ${{ steps.version.outputs.VERSION_MAJOR }}
-          VERSION_MINOR: ${{ steps.version.outputs.VERSION_MINOR }}
-          VERSION_PATCH: ${{ steps.version.outputs.VERSION_PATCH }}
-          VERSION_STABLE: 'true'
-    outputs:
-      version_major: ${{ steps.version.outputs.VERSION_MAJOR }}
-      version_minor: ${{ steps.version.outputs.VERSION_MINOR }}
-      version_patch: ${{ steps.version.outputs.VERSION_PATCH }}
-
-  sign_and_release:
-    name: Sign and Release
-    needs: verify
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0  # Fetch all history for version calculation
-
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '17'
-          cache: gradle
-
-      - name: Decode keystore
-        run: echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > $GITHUB_WORKSPACE/keystore.jks
-        env:
-          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-
-      - name: Build and sign
-        run: ./gradlew --no-daemon :app:assembleRelease
-        env:
-          ANDROID_KEYSTORE: ${{ github.workspace }}/keystore.jks
-          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASS }}
-          ANDROID_KEY_ALIAS: android
-          # Note: Using same password for keystore and key (common pattern for CI keystores)
-          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASS }}
-          VERSION_MAJOR: ${{ needs.verify.outputs.version_major }}
-          VERSION_MINOR: ${{ needs.verify.outputs.version_minor }}
-          VERSION_PATCH: ${{ needs.verify.outputs.version_patch }}
-          VERSION_STABLE: 'true'
-
-      - name: Get version from tag
-        id: get-version
-        run: |
-          if [[ "${{ github.ref_type }}" == "tag" ]]; then
-            echo "version=${{ github.ref_name }}" >> $GITHUB_OUTPUT
-          else
-            echo "version=v${{ needs.verify.outputs.version_major }}.${{ needs.verify.outputs.version_minor }}.${{ needs.verify.outputs.version_patch }}" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Publish GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          prerelease: ${{ github.ref_type != 'tag' }}
-          tag_name: ${{ steps.get-version.outputs.version }}
-          files: app/build/outputs/apk/release/app-release.apk
+          echo "This workflow is deprecated and has been replaced by:"
+          echo "  - build.yml (unsigned builds)"
+          echo "  - sign-release.yml (production signing)"
+          echo ""
+          echo "For new releases, push a git tag matching v*.*.* pattern."
+          echo "The build.yml and sign-release.yml workflows will handle signing and publishing."
+          exit 1

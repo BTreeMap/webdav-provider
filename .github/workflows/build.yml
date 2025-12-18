@@ -1,0 +1,127 @@
+# Build Workflow - Builds unsigned APKs for all environments
+#
+# This workflow builds APKs but NEVER signs them. It has no access to signing secrets.
+# The appropriate version naming is baked into the binary based on CI_BUILD_TYPE:
+# - release: v1.2.3
+# - prerelease: v1.2.3-dev.X+<sha>
+# - test: ci-test-untrusted-1.2.3-dev.X+<sha>
+#
+# Artifacts are uploaded for downstream signing workflows.
+
+name: Build
+
+on:
+  push:
+    branches: ["master"]
+    tags: ["v*"]
+  pull_request:
+    branches: ["master"]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build Unsigned APKs
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Fetch all history for version calculation
+
+      - name: Determine Build Type
+        id: build-type
+        run: |
+          if [[ $GITHUB_REF == refs/tags/v* ]]; then
+            echo "CI_BUILD_TYPE=release" >> $GITHUB_ENV
+            echo "build_type=release" >> $GITHUB_OUTPUT
+          elif [[ $GITHUB_REF == refs/heads/master ]]; then
+            echo "CI_BUILD_TYPE=prerelease" >> $GITHUB_ENV
+            echo "build_type=prerelease" >> $GITHUB_OUTPUT
+          else
+            echo "CI_BUILD_TYPE=test" >> $GITHUB_ENV
+            echo "build_type=test" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Calculate Version
+        id: version
+        run: |
+          # Get the latest v*.*.* tag
+          LATEST_TAG=$(git describe --tags --abbrev=0 --match "v*.*.*" 2>/dev/null || echo "v0.0.0")
+          echo "Latest tag: $LATEST_TAG"
+          
+          # Parse version components
+          VERSION_REGEX="^v([0-9]+)\.([0-9]+)\.([0-9]+)$"
+          if [[ $LATEST_TAG =~ $VERSION_REGEX ]]; then
+            MAJOR="${BASH_REMATCH[1]}"
+            MINOR="${BASH_REMATCH[2]}"
+            PATCH="${BASH_REMATCH[3]}"
+          else
+            MAJOR=0
+            MINOR=0
+            PATCH=0
+          fi
+          
+          # Count commits since the last tag
+          BUILD_COUNT=$(git rev-list --count HEAD "^${LATEST_TAG}" 2>/dev/null || echo "0")
+          
+          echo "VERSION_MAJOR=$MAJOR" >> $GITHUB_OUTPUT
+          echo "VERSION_MINOR=$MINOR" >> $GITHUB_OUTPUT
+          echo "VERSION_PATCH=$PATCH" >> $GITHUB_OUTPUT
+          echo "VERSION_BUILD_COUNT=$BUILD_COUNT" >> $GITHUB_OUTPUT
+          echo "Version: ${MAJOR}.${MINOR}.${PATCH} (build count: ${BUILD_COUNT})"
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      # Build untrusted flavor for test builds (PRs)
+      - name: Build Untrusted APK (for test signing)
+        if: steps.build-type.outputs.build_type == 'test'
+        run: ./gradlew --no-daemon :app:assembleUntrustedRelease
+        env:
+          VERSION_MAJOR: ${{ steps.version.outputs.VERSION_MAJOR }}
+          VERSION_MINOR: ${{ steps.version.outputs.VERSION_MINOR }}
+          VERSION_PATCH: ${{ steps.version.outputs.VERSION_PATCH }}
+          VERSION_BUILD_COUNT: ${{ steps.version.outputs.VERSION_BUILD_COUNT }}
+          VERSION_STABLE: 'false'
+          CI_BUILD_TYPE: test
+
+      # Build prod flavor for pre-release and release builds
+      - name: Build Prod APK (for release signing)
+        if: steps.build-type.outputs.build_type != 'test'
+        run: ./gradlew --no-daemon :app:assembleProdRelease
+        env:
+          VERSION_MAJOR: ${{ steps.version.outputs.VERSION_MAJOR }}
+          VERSION_MINOR: ${{ steps.version.outputs.VERSION_MINOR }}
+          VERSION_PATCH: ${{ steps.version.outputs.VERSION_PATCH }}
+          VERSION_BUILD_COUNT: ${{ steps.version.outputs.VERSION_BUILD_COUNT }}
+          VERSION_STABLE: ${{ steps.build-type.outputs.build_type == 'release' && 'true' || 'false' }}
+          CI_BUILD_TYPE: ${{ steps.build-type.outputs.build_type }}
+
+      - name: Upload Untrusted APK Artifact
+        if: steps.build-type.outputs.build_type == 'test'
+        uses: actions/upload-artifact@v4
+        with:
+          name: unsigned-untrusted-apk
+          path: app/build/outputs/apk/untrusted/release/*.apk
+          retention-days: 30
+
+      - name: Upload Prod APK Artifact
+        if: steps.build-type.outputs.build_type != 'test'
+        uses: actions/upload-artifact@v4
+        with:
+          name: unsigned-prod-apk
+          path: app/build/outputs/apk/prod/release/*.apk
+          retention-days: 30
+    
+    outputs:
+      build_type: ${{ steps.build-type.outputs.build_type }}
+      version_major: ${{ steps.version.outputs.VERSION_MAJOR }}
+      version_minor: ${{ steps.version.outputs.VERSION_MINOR }}
+      version_patch: ${{ steps.version.outputs.VERSION_PATCH }}
+      version_build_count: ${{ steps.version.outputs.VERSION_BUILD_COUNT }}

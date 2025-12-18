@@ -10,9 +10,11 @@ plugins {
 
 def appName = "WebDAV Provider"
 def appNameDebug = "${appName} (Debug)"
-def packageName = "dev.rocli.android.webdav"
+def appNameTest = "${appName} (Test)"
+def packageName = "org.joefang.webdav"
 def providerAuthority = "${packageName}.provider"
 def providerAuthorityDebug = "${packageName}.debug.provider"
+def providerAuthorityTest = "${packageName}.test.provider"
 
 def getCmdOutput = { cmd ->
     def stdout = new ByteArrayOutputStream()
@@ -130,7 +132,30 @@ if (!isStable && buildCount > 0) {
 }
 
 def computedVersionCode = calculateVersionCode(vMajor, vMinor, vPatch, isStable, buildCount)
-def computedVersionName = isStable ? "v${vMajor}.${vMinor}.${vPatch}" : "v${vMajor}.${vMinor}.${vPatch}-beta.${buildCount}"
+
+// CI_BUILD_TYPE controls version naming:
+// - "release": Stable release (v1.2.3)
+// - "prerelease": Pre-release from main branch (v1.2.3-dev.X+<sha>)
+// - "test" or other: Untrusted test build (ci-test-untrusted-1.2.3-dev.X+<sha>)
+def ciBuildType = System.getenv("CI_BUILD_TYPE") ?: "local"
+def gitSha = getGitHash()
+
+def computedVersionName
+switch (ciBuildType) {
+    case "release":
+        computedVersionName = "v${vMajor}.${vMinor}.${vPatch}"
+        break
+    case "prerelease":
+        computedVersionName = "v${vMajor}.${vMinor}.${vPatch}-dev.${buildCount}+${gitSha}"
+        break
+    case "test":
+        // Explicitly non-SemVer for untrusted test builds
+        computedVersionName = "ci-test-untrusted-${vMajor}.${vMinor}.${vPatch}-dev.${buildCount}+${gitSha}"
+        break
+    default:
+        // Local development builds
+        computedVersionName = "v${vMajor}.${vMinor}.${vPatch}-dev.${buildCount}+${gitSha}"
+}
 
 android {
     namespace packageName
@@ -155,7 +180,7 @@ android {
             }
         }
 
-        testInstrumentationRunner "dev.rocli.android.webdav.WebDavTestRunner"
+        testInstrumentationRunner "org.joefang.webdav.WebDavTestRunner"
         testInstrumentationRunnerArguments clearPackageData: 'true'
     }
 
@@ -183,6 +208,25 @@ android {
         dataBinding true
         viewBinding true
         buildConfig true
+    }
+
+    // Product flavors for co-installation support
+    // 'prod' flavor installs as org.joefang.webdav (production releases)
+    // 'untrusted' flavor installs as org.joefang.webdav.test (untrusted test builds)
+    flavorDimensions += "env"
+    productFlavors {
+        prod {
+            dimension "env"
+            // Uses base applicationId: org.joefang.webdav
+        }
+        untrusted {
+            dimension "env"
+            // Allows untrusted builds to be installed alongside production
+            applicationIdSuffix ".test"
+            resValue("string", "app_name", appNameTest)
+            manifestPlaceholders = [providerAuthority: providerAuthorityTest]
+            buildConfigField("String", "PROVIDER_AUTHORITY", "\"${providerAuthorityTest}\"")
+        }
     }
 
     signingConfigs {
