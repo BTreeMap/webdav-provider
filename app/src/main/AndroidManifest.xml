@@ -25,7 +25,7 @@
             </intent-filter>
         </activity>
         <provider
-            android:name="dev.rocli.android.webdav.provider.WebDavProvider"
+            android:name="org.joefang.webdav.provider.WebDavProvider"
             android:authorities="${providerAuthority}"
             android:grantUriPermissions="true"
             android:exported="true"
