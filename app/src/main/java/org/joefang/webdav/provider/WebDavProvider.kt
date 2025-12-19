@@ -501,9 +501,9 @@ class WebDavProvider : DocumentsProvider() {
 
             val id = try {
                 val accountIdStr = parts[1]
-                // Validate account ID is a positive long
+                // Validate account ID is a non-negative long (only digits allowed)
                 if (accountIdStr.isEmpty() || accountIdStr.any { !it.isDigit() }) {
-                    throw NumberFormatException("Account ID must be a positive integer")
+                    throw NumberFormatException("Account ID must be a non-negative integer")
                 }
                 accountIdStr.toLong().also {
                     if (it < 0) throw NumberFormatException("Account ID must be non-negative")
@@ -515,9 +515,10 @@ class WebDavProvider : DocumentsProvider() {
             val pathStr = parts.drop(2).joinToString("/", prefix = "/")
             
             // Security: Check for path traversal attempts
-            if (pathStr.contains("/../") || pathStr.contains("/./") || 
-                pathStr.endsWith("/..") || pathStr.endsWith("/.") ||
-                pathStr == "/.." || pathStr == "/.") {
+            // We check for ".." and "." as standalone path segments, not as parts of filenames
+            // This allows legitimate files like ".config" or "file..backup" while blocking "../"
+            val pathSegments = pathStr.split("/").filter { it.isNotEmpty() }
+            if (pathSegments.any { it == ".." || it == "." }) {
                 throw IllegalArgumentException("Invalid document ID: '$documentId' (Path traversal detected)")
             }
             

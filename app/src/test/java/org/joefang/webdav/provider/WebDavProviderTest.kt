@@ -179,6 +179,15 @@ class WebDavProviderTest {
     }
 
     @Test
+    fun `parseDocumentId allows filenames with double dots in name`() {
+        // Filenames like "file..backup" or "test..txt" should be allowed
+        val (accountId, path) = WebDavProvider.parseDocumentId("/1/documents/file..backup")
+        
+        assertEquals(1L, accountId)
+        assertEquals(Paths.get("/documents/file..backup"), path)
+    }
+
+    @Test
     fun `parseDocumentId handles URL-encoded paths`() {
         val (accountId, path) = WebDavProvider.parseDocumentId("/1/documents/file%20name.txt")
         
