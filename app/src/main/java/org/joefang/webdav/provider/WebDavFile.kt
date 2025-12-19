@@ -196,10 +196,7 @@ class WebDavFile(
             private var current: WebDavFile? = null
             
             override fun hasNext(): Boolean = delegate.hasNext()
-            override fun next(): WebDavFile {
-                current = delegate.next()
-                return current!!
-            }
+            override fun next(): WebDavFile = delegate.next().also { current = it }
             override fun remove() {
                 current?.let { pathIndex.remove(it.path) }
                 delegate.remove()
@@ -214,15 +211,9 @@ class WebDavFile(
             
             override fun hasNext(): Boolean = delegate.hasNext()
             override fun hasPrevious(): Boolean = delegate.hasPrevious()
-            override fun next(): WebDavFile {
-                current = delegate.next()
-                return current!!
-            }
+            override fun next(): WebDavFile = delegate.next().also { current = it }
             override fun nextIndex(): Int = delegate.nextIndex()
-            override fun previous(): WebDavFile {
-                current = delegate.previous()
-                return current!!
-            }
+            override fun previous(): WebDavFile = delegate.previous().also { current = it }
             override fun previousIndex(): Int = delegate.previousIndex()
             override fun add(element: WebDavFile) {
                 pathIndex[element.path] = element

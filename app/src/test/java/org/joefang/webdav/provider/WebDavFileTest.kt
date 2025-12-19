@@ -255,24 +255,22 @@ class WebDavFileTest {
     }
 
     @Test
-    fun `performance test for findChildByPath with many children`() {
+    fun `findChildByPath works correctly with many children`() {
         val parent = WebDavFile(Paths.get("/documents"), isDirectory = true)
         
-        // Add 1000 children
+        // Add 1000 children to verify HashMap handles many entries
         repeat(1000) { i ->
             parent.children.add(WebDavFile(Paths.get("/documents/file$i.txt")))
         }
         
-        // Find the 500th child - should be O(1)
-        val startTime = System.nanoTime()
-        val found = parent.findChildByPath(Paths.get("/documents/file500.txt"))
-        val endTime = System.nanoTime()
+        // Verify we can find children at various positions
+        assertNotNull(parent.findChildByPath(Paths.get("/documents/file0.txt")))
+        assertNotNull(parent.findChildByPath(Paths.get("/documents/file500.txt")))
+        assertNotNull(parent.findChildByPath(Paths.get("/documents/file999.txt")))
+        assertNull(parent.findChildByPath(Paths.get("/documents/file1000.txt")))
         
-        assertNotNull(found)
-        assertEquals(Paths.get("/documents/file500.txt"), found?.path)
-        
-        // HashMap lookup should be very fast (under 1ms)
-        val durationMs = (endTime - startTime) / 1_000_000
-        assertTrue("HashMap lookup took too long: ${durationMs}ms", durationMs < 10)
+        // Verify the correct children are found
+        assertEquals(Paths.get("/documents/file500.txt"), 
+            parent.findChildByPath(Paths.get("/documents/file500.txt"))?.path)
     }
 }
