@@ -377,7 +377,8 @@ class WebDavProvider : DocumentsProvider() {
             val file = if (isRoot) {
                 resFile
             } else {
-                resFile.children.find { f -> f.path == doc.path }
+                // Use O(1) HashMap lookup instead of O(N) linear search
+                resFile.findChildByPath(doc.path)
             }
 
             if (file != null) {
@@ -474,19 +475,59 @@ class WebDavProvider : DocumentsProvider() {
     }
 
     companion object {
+        /**
+         * Parses a document ID into account ID and path components.
+         * 
+         * Document ID format: /{accountId}/{path...}
+         * Example: /1/documents/file.txt -> (1, /documents/file.txt)
+         * 
+         * Security: This method validates the input to prevent:
+         * - Path traversal attacks (../)
+         * - Invalid account IDs
+         * - Malformed document IDs
+         * 
+         * @throws IllegalArgumentException if the document ID is invalid
+         */
         fun parseDocumentId(documentId: String): Pair<Long, Path> {
+            // Validate basic structure
+            if (documentId.isEmpty() || !documentId.startsWith("/")) {
+                throw IllegalArgumentException("Invalid document ID: '$documentId' (must start with /)")
+            }
+            
             val parts = documentId.split("/")
             if (parts.size < 3) {
                 throw IllegalArgumentException("Invalid document ID: '$documentId'")
             }
 
             val id = try {
-                parts[1].toLong()
+                val accountIdStr = parts[1]
+                // Validate account ID is a positive long
+                if (accountIdStr.isEmpty() || accountIdStr.any { !it.isDigit() }) {
+                    throw NumberFormatException("Account ID must be a positive integer")
+                }
+                accountIdStr.toLong().also {
+                    if (it < 0) throw NumberFormatException("Account ID must be non-negative")
+                }
             } catch (e: NumberFormatException) {
-                throw IllegalArgumentException("Invalid document ID: '$documentId' (Bad account ID: ${parts[1]}")
+                throw IllegalArgumentException("Invalid document ID: '$documentId' (Bad account ID: ${parts[1]})")
             }
 
-            val path = Paths.get(parts.drop(2).joinToString("/", prefix = "/"))
+            val pathStr = parts.drop(2).joinToString("/", prefix = "/")
+            
+            // Security: Check for path traversal attempts
+            if (pathStr.contains("/../") || pathStr.contains("/./") || 
+                pathStr.endsWith("/..") || pathStr.endsWith("/.") ||
+                pathStr == "/.." || pathStr == "/.") {
+                throw IllegalArgumentException("Invalid document ID: '$documentId' (Path traversal detected)")
+            }
+            
+            val path = Paths.get(pathStr).normalize()
+            
+            // Additional security check: ensure normalized path doesn't escape root
+            if (!path.toString().startsWith("/")) {
+                throw IllegalArgumentException("Invalid document ID: '$documentId' (Path must be absolute)")
+            }
+            
             return Pair(id, path)
         }
 
