@@ -115,6 +115,26 @@ class WebDavFile(
         return "application/octet-stream"
     }
     
+    // ==================== Copy Method ====================
+    
+    /**
+     * Creates a copy of this file with a new path.
+     * All properties are copied except children (which are not transferred during rename).
+     * 
+     * @param newPath The path for the new file
+     * @return A new WebDavFile with the same properties but a different path
+     */
+    fun copyWithNewPath(newPath: Path): WebDavFile {
+        return WebDavFile(newPath, isDirectory, contentType, isPending).also {
+            it.parent = parent
+            it.etag = etag
+            it.contentLength = contentLength
+            it.quotaUsedBytes = quotaUsedBytes
+            it.quotaAvailableBytes = quotaAvailableBytes
+            it.lastModified = lastModified
+        }
+    }
+    
     // ==================== Children Management API ====================
     // All operations below are O(1) thanks to LinkedHashMap
     

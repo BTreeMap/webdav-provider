@@ -328,14 +328,8 @@ class WebDavProvider : DocumentsProvider() {
             clients.get(account).move(file.davPath, WebDavPath(newPath, file.isDirectory))
         }
         if (res.isSuccessful) {
-            // Create a new file with the new path (path is immutable for HashMap key stability)
-            val renamedFile = WebDavFile(newPath, file.isDirectory, file.contentType, file.isPending)
-            renamedFile.parent = file.parent
-            renamedFile.etag = file.etag
-            renamedFile.contentLength = file.contentLength
-            renamedFile.quotaUsedBytes = file.quotaUsedBytes
-            renamedFile.quotaAvailableBytes = file.quotaAvailableBytes
-            renamedFile.lastModified = file.lastModified
+            // Create a copy with the new path (using copyWithNewPath to ensure all fields are copied)
+            val renamedFile = file.copyWithNewPath(newPath)
             
             // Update parent's children: remove old, add new
             file.parent?.removeChild(file)

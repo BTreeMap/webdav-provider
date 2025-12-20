@@ -348,6 +348,51 @@ class WebDavFileTest {
         assertEquals(Paths.get("/documents/file.txt"), file.path)
     }
     
+    // ==================== Copy Method Tests ====================
+    
+    @Test
+    fun `copyWithNewPath creates file with new path and copies all properties`() {
+        val original = WebDavFile(Paths.get("/documents/old.txt"), isDirectory = false)
+        original.contentType = "text/plain"
+        original.isPending = true
+        original.etag = "abc123"
+        original.contentLength = 1024L
+        original.quotaUsedBytes = 500L
+        original.quotaAvailableBytes = 9500L
+        original.lastModified = java.util.Date(1234567890000L)
+        
+        val parent = WebDavFile(Paths.get("/documents"), isDirectory = true)
+        original.parent = parent
+        
+        val copy = original.copyWithNewPath(Paths.get("/documents/new.txt"))
+        
+        // Verify new path
+        assertEquals(Paths.get("/documents/new.txt"), copy.path)
+        
+        // Verify all other properties are copied
+        assertEquals(original.isDirectory, copy.isDirectory)
+        assertEquals(original.contentType, copy.contentType)
+        assertEquals(original.isPending, copy.isPending)
+        assertEquals(original.etag, copy.etag)
+        assertEquals(original.contentLength, copy.contentLength)
+        assertEquals(original.quotaUsedBytes, copy.quotaUsedBytes)
+        assertEquals(original.quotaAvailableBytes, copy.quotaAvailableBytes)
+        assertEquals(original.lastModified, copy.lastModified)
+        assertEquals(original.parent, copy.parent)
+    }
+    
+    @Test
+    fun `copyWithNewPath does not copy children`() {
+        val original = WebDavFile(Paths.get("/documents"), isDirectory = true)
+        original.addChild(WebDavFile(Paths.get("/documents/file1.txt")))
+        original.addChild(WebDavFile(Paths.get("/documents/file2.txt")))
+        
+        val copy = original.copyWithNewPath(Paths.get("/backup"))
+        
+        assertEquals(0, copy.childCount)
+        assertEquals(2, original.childCount)
+    }
+    
     // ==================== WebDavFile Properties Tests ====================
 
     @Test
