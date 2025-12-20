@@ -161,7 +161,7 @@ class WebDavClient(
             val file = WebDavFile(desc)
             if (file.path != path.path) {
                 file.parent = root
-                root.children.add(file)
+                root.addChild(file)
             }
         }
 

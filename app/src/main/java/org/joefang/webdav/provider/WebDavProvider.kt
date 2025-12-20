@@ -126,7 +126,7 @@ class WebDavProvider : DocumentsProvider() {
             cache.setFileMeta(account, parentFile)
 
             result.apply {
-                for (file in parentFile.children) {
+                for (file in parentFile.children()) {
                     if (!file.isPending) {
                         includeFile(this, account, file)
                     }
@@ -227,8 +227,8 @@ class WebDavProvider : DocumentsProvider() {
         val callback = WebDavWriteProxyCallback(clients.get(account), file,
             onSuccess = { newFile ->
                 file.parent?.let {
-                    it.children.remove(file)
-                    it.children.add(newFile)
+                    it.removeChild(file)
+                    it.addChild(newFile)
 
                     val notifyUri = buildDocumentUri(account, it)
                     mustGetContext().contentResolver.notifyChange(notifyUri, null, 0)
@@ -236,7 +236,7 @@ class WebDavProvider : DocumentsProvider() {
                 writeProxies.remove(documentId)
             },
             onFail = {
-                file.parent?.children?.remove(file)
+                file.parent?.removeChild(file)
                 writeProxies.remove(documentId)
             }
         )
@@ -268,7 +268,7 @@ class WebDavProvider : DocumentsProvider() {
             if (res.isSuccessful) {
                 val file = WebDavFile(path, true, contentType = mimeType)
                 file.parent = dir
-                dir.children.add(file)
+                dir.addChild(file)
                 cache.setFileMeta(account, file)
 
                 val notifyUri = buildDocumentUri(account, file.parent!!)
@@ -279,7 +279,7 @@ class WebDavProvider : DocumentsProvider() {
         } else {
             val file = WebDavFile(path, false, contentType = mimeType, isPending = true)
             file.parent = dir
-            dir.children.add(file)
+            dir.addChild(file)
 
             resDocumentId = buildDocumentId(account, file)
         }
@@ -302,7 +302,7 @@ class WebDavProvider : DocumentsProvider() {
 
         if (res.isSuccessful) {
             cache.removeFileMeta(account, file.path)
-            file.parent?.children?.remove(file)
+            file.parent?.removeChild(file)
 
             val notifyUri = buildDocumentUri(account, file.path.parent)
             mustGetContext().contentResolver.notifyChange(notifyUri, null, 0)
@@ -328,13 +328,25 @@ class WebDavProvider : DocumentsProvider() {
             clients.get(account).move(file.davPath, WebDavPath(newPath, file.isDirectory))
         }
         if (res.isSuccessful) {
-            file.path = newPath
+            // Create a new file with the new path (path is immutable for HashMap key stability)
+            val renamedFile = WebDavFile(newPath, file.isDirectory, file.contentType, file.isPending)
+            renamedFile.parent = file.parent
+            renamedFile.etag = file.etag
+            renamedFile.contentLength = file.contentLength
+            renamedFile.quotaUsedBytes = file.quotaUsedBytes
+            renamedFile.quotaAvailableBytes = file.quotaAvailableBytes
+            renamedFile.lastModified = file.lastModified
+            
+            // Update parent's children: remove old, add new
+            file.parent?.removeChild(file)
+            file.parent?.addChild(renamedFile)
+            
             if (file.isDirectory) {
                 cache.removeFileMeta(account, oldPath)
-                cache.setFileMeta(account, file)
+                cache.setFileMeta(account, renamedFile)
             }
 
-            val notifyUri = buildDocumentUri(account, file.path.parent)
+            val notifyUri = buildDocumentUri(account, newPath.parent)
             mustGetContext().contentResolver.notifyChange(notifyUri, null, 0)
 
             return buildDocumentId(account, newPath)

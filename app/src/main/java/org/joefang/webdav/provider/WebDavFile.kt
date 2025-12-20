@@ -14,29 +14,40 @@ import java.util.Locale
 /**
  * Represents a file or directory on a WebDAV server.
  * 
- * This class maintains a tree structure of files where directories
- * can have children. For efficient lookup operations, children are
- * stored both in a list (for ordered iteration) and a HashMap 
- * (for O(1) path-based lookup).
+ * This class maintains a tree structure of files where directories can have children.
+ * 
+ * ## Data Structure Choice: LinkedHashMap
+ * 
+ * Children are stored in a [LinkedHashMap] keyed by [Path], which provides:
+ * - **O(1) lookup** by path via [findChildByPath] or [containsChild]
+ * - **O(1) insertion** at the end (preserves insertion order)
+ * - **O(1) deletion** by key/path
+ * - **Ordered iteration** in insertion order (important for consistent UI display)
+ * 
+ * This is optimal for our access patterns which require:
+ * - Fast path-based lookups (cache validation, document resolution)
+ * - Adding children when listing directories
+ * - Removing children when files are deleted
+ * - Iterating over children for directory listings
+ * 
+ * We do NOT require indexed access (e.g., `children[5]`), so LinkedHashMap is ideal.
+ * See `docs/DATA_STRUCTURES.md` for detailed analysis.
+ * 
+ * @property path The immutable path of this file. Immutability ensures cache consistency.
  */
 class WebDavFile(
-    var path: Path,
+    val path: Path,
     var isDirectory: Boolean = false,
     var contentType: String? = null,
     var isPending: Boolean = false
 ) {
     var parent: WebDavFile? = null
     
-    // Use a backing list for ordered iteration and a HashMap for O(1) lookup
-    private val childrenList: MutableList<WebDavFile> = ArrayList()
-    private val childrenByPath: MutableMap<Path, WebDavFile> = HashMap()
-    
     /**
-     * Returns a mutable list view of children for backward compatibility.
-     * For better performance when looking up by path, use [findChildByPath].
+     * Children stored in a LinkedHashMap for O(1) lookup, insertion, and deletion.
+     * Iteration preserves insertion order for consistent directory listings.
      */
-    val children: MutableList<WebDavFile>
-        get() = ChildrenListWrapper(childrenList, childrenByPath)
+    private val childrenMap: LinkedHashMap<Path, WebDavFile> = LinkedHashMap()
     
     val writable: Boolean = true
 
@@ -104,130 +115,83 @@ class WebDavFile(
         return "application/octet-stream"
     }
     
+    // ==================== Children Management API ====================
+    // All operations below are O(1) thanks to LinkedHashMap
+    
     /**
-     * Finds a child file by its path in O(1) time.
+     * Returns the number of children. O(1).
+     */
+    val childCount: Int
+        get() = childrenMap.size
+    
+    /**
+     * Checks if this file has any children. O(1).
+     */
+    fun hasChildren(): Boolean = childrenMap.isNotEmpty()
+    
+    /**
+     * Finds a child file by its path. O(1).
      * @param childPath The path of the child to find
      * @return The child file, or null if not found
      */
-    fun findChildByPath(childPath: Path): WebDavFile? {
-        return childrenByPath[childPath]
+    fun findChildByPath(childPath: Path): WebDavFile? = childrenMap[childPath]
+    
+    /**
+     * Checks if a child with the given path exists. O(1).
+     */
+    fun containsChild(childPath: Path): Boolean = childrenMap.containsKey(childPath)
+    
+    /**
+     * Adds a child file. O(1).
+     * If a child with the same path already exists, it will be replaced.
+     * @param child The child file to add
+     */
+    fun addChild(child: WebDavFile) {
+        childrenMap[child.path] = child
     }
     
     /**
-     * A wrapper around the children list that keeps the HashMap in sync.
-     * This ensures backward compatibility with existing code that uses
-     * children as a MutableList while providing O(1) lookup by path.
+     * Adds multiple children. O(n) where n is the number of children to add.
      */
-    private class ChildrenListWrapper(
-        private val backingList: MutableList<WebDavFile>,
-        private val pathIndex: MutableMap<Path, WebDavFile>
-    ) : MutableList<WebDavFile> by backingList {
-        
-        override fun add(element: WebDavFile): Boolean {
-            pathIndex[element.path] = element
-            return backingList.add(element)
-        }
-        
-        override fun add(index: Int, element: WebDavFile) {
-            pathIndex[element.path] = element
-            backingList.add(index, element)
-        }
-        
-        override fun addAll(elements: Collection<WebDavFile>): Boolean {
-            elements.forEach { pathIndex[it.path] = it }
-            return backingList.addAll(elements)
-        }
-        
-        override fun addAll(index: Int, elements: Collection<WebDavFile>): Boolean {
-            elements.forEach { pathIndex[it.path] = it }
-            return backingList.addAll(index, elements)
-        }
-        
-        override fun remove(element: WebDavFile): Boolean {
-            pathIndex.remove(element.path)
-            return backingList.remove(element)
-        }
-        
-        override fun removeAt(index: Int): WebDavFile {
-            val element = backingList.removeAt(index)
-            pathIndex.remove(element.path)
-            return element
-        }
-        
-        override fun removeAll(elements: Collection<WebDavFile>): Boolean {
-            elements.forEach { pathIndex.remove(it.path) }
-            return backingList.removeAll(elements)
-        }
-        
-        override fun retainAll(elements: Collection<WebDavFile>): Boolean {
-            val pathsToKeep = elements.map { it.path }.toSet()
-            pathIndex.keys.retainAll(pathsToKeep)
-            return backingList.retainAll(elements)
-        }
-        
-        override fun clear() {
-            pathIndex.clear()
-            backingList.clear()
-        }
-        
-        override fun set(index: Int, element: WebDavFile): WebDavFile {
-            val old = backingList[index]
-            pathIndex.remove(old.path)
-            pathIndex[element.path] = element
-            return backingList.set(index, element)
-        }
-        
-        override fun iterator(): MutableIterator<WebDavFile> {
-            return IndexSyncIterator(backingList.iterator(), pathIndex)
-        }
-        
-        override fun listIterator(): MutableListIterator<WebDavFile> {
-            return IndexSyncListIterator(backingList.listIterator(), pathIndex)
-        }
-        
-        override fun listIterator(index: Int): MutableListIterator<WebDavFile> {
-            return IndexSyncListIterator(backingList.listIterator(index), pathIndex)
-        }
-        
-        private class IndexSyncIterator(
-            private val delegate: MutableIterator<WebDavFile>,
-            private val pathIndex: MutableMap<Path, WebDavFile>
-        ) : MutableIterator<WebDavFile> {
-            private var current: WebDavFile? = null
-            
-            override fun hasNext(): Boolean = delegate.hasNext()
-            override fun next(): WebDavFile = delegate.next().also { current = it }
-            override fun remove() {
-                current?.let { pathIndex.remove(it.path) }
-                delegate.remove()
-            }
-        }
-        
-        private class IndexSyncListIterator(
-            private val delegate: MutableListIterator<WebDavFile>,
-            private val pathIndex: MutableMap<Path, WebDavFile>
-        ) : MutableListIterator<WebDavFile> {
-            private var current: WebDavFile? = null
-            
-            override fun hasNext(): Boolean = delegate.hasNext()
-            override fun hasPrevious(): Boolean = delegate.hasPrevious()
-            override fun next(): WebDavFile = delegate.next().also { current = it }
-            override fun nextIndex(): Int = delegate.nextIndex()
-            override fun previous(): WebDavFile = delegate.previous().also { current = it }
-            override fun previousIndex(): Int = delegate.previousIndex()
-            override fun add(element: WebDavFile) {
-                pathIndex[element.path] = element
-                delegate.add(element)
-            }
-            override fun remove() {
-                current?.let { pathIndex.remove(it.path) }
-                delegate.remove()
-            }
-            override fun set(element: WebDavFile) {
-                current?.let { pathIndex.remove(it.path) }
-                pathIndex[element.path] = element
-                delegate.set(element)
-            }
-        }
+    fun addChildren(children: Collection<WebDavFile>) {
+        children.forEach { childrenMap[it.path] = it }
     }
+    
+    /**
+     * Removes a child by reference. O(1).
+     * @return true if the child was removed, false if not found
+     */
+    fun removeChild(child: WebDavFile): Boolean = childrenMap.remove(child.path) != null
+    
+    /**
+     * Removes a child by path. O(1).
+     * @return The removed child, or null if not found
+     */
+    fun removeChildByPath(childPath: Path): WebDavFile? = childrenMap.remove(childPath)
+    
+    /**
+     * Removes all children. O(1).
+     */
+    fun clearChildren() {
+        childrenMap.clear()
+    }
+    
+    /**
+     * Returns an iterator over the children in insertion order.
+     * Modifications during iteration are supported via the iterator's remove() method.
+     */
+    fun childrenIterator(): MutableIterator<WebDavFile> = childrenMap.values.iterator()
+    
+    /**
+     * Returns all children as a collection.
+     * The returned collection is a view backed by the map; changes to the map
+     * are reflected in the collection. For a snapshot, use [childrenSnapshot].
+     */
+    fun children(): Collection<WebDavFile> = childrenMap.values
+    
+    /**
+     * Returns a snapshot (copy) of all children as a list.
+     * Use this when you need to iterate while potentially modifying the children.
+     */
+    fun childrenSnapshot(): List<WebDavFile> = childrenMap.values.toList()
 }
