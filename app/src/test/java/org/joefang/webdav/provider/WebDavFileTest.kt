@@ -12,10 +12,13 @@ import java.nio.file.Paths
  * Comprehensive tests for WebDavFile, especially the LinkedHashMap-based children management.
  * 
  * These tests verify:
- * - O(1) operations (add, remove, lookup)
- * - Insertion order preservation
- * - Iterator correctness (including modification during iteration)
- * - Edge cases and challenging access patterns
+ * - **O(1) operations**: add, remove, lookup by path
+ * - **Insertion order preservation**: children iterate in order they were added
+ * - **Iterator correctness**: safe removal during iteration via iterator.remove()
+ * - **Snapshot iteration**: safe iteration while modifying the collection
+ * - **Large-scale operations**: 1000+ children to verify performance
+ * - **Edge cases**: duplicate paths, empty collections, path immutability
+ * - **Copy semantics**: copyWithNewPath for safe file renaming
  */
 class WebDavFileTest {
 

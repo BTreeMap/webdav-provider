@@ -203,9 +203,11 @@ class WebDavFile(
     fun childrenIterator(): MutableIterator<WebDavFile> = childrenMap.values.iterator()
     
     /**
-     * Returns all children as a collection.
-     * The returned collection is a view backed by the map; changes to the map
-     * are reflected in the collection. For a snapshot, use [childrenSnapshot].
+     * Returns all children as a collection view.
+     * 
+     * **Warning:** This is a view backed by the map. If children are modified while
+     * iterating (except via the iterator's remove method), a ConcurrentModificationException
+     * may be thrown. For safe iteration during modification, use [childrenSnapshot].
      */
     fun children(): Collection<WebDavFile> = childrenMap.values
     
