@@ -178,30 +178,35 @@ framework, which uses a specific threading model:
 3. **Sequential Request Handling**: The DocumentsProvider framework serializes requests for the 
    same document/directory, meaning one operation completes before another begins.
 
-4. **Read-Only Iteration Pattern**: All iteration over `children()` in production code only 
-   **reads** the collection (e.g., calling `includeFile()`). No modifications occur during iteration.
+4. **Read-Only Iteration Pattern**: In the current codebase (as of December 2024), all iteration 
+   over `children()` only **reads** the collection (e.g., calling `includeFile()`). No modifications 
+   occur during iteration in the existing code paths.
 
 ### Comparison with Original ArrayList Implementation
 
 The original `ArrayList`-based implementation had the **same concurrency characteristics**:
 - No synchronization was used
-- Iteration was never modified during traversal
+- Iteration was not modified during traversal in existing code paths
 - The framework's threading model prevented concurrent access
 
 The switch to `LinkedHashMap` maintains this safety model. The 
-`ConcurrentModificationException` warning in the documentation is a general best-practice 
-note, but cannot occur in our actual usage patterns.
+`ConcurrentModificationException` warning in the documentation is a defensive best-practice 
+note. Under the current threading model and usage patterns, it should not occur during 
+normal operation.
 
 ### When to Use `childrenSnapshot()`
 
-Use `childrenSnapshot()` only if you need to:
+Use `childrenSnapshot()` if you need to:
 1. Iterate over children while potentially adding/removing children in the same loop
 2. Store a stable list that won't change if the parent is refreshed
 
-In current production code, this is never needed because:
+In the current codebase (December 2024), `childrenSnapshot()` is not required because:
 - `queryChildDocuments`: Iterates to populate UI cursor (read-only)
 - `createDocument`: Adds a single child (no iteration)
 - `deleteDocument`: Removes a single child (no iteration)
+
+**Note:** If future code changes introduce iteration with modification, use `childrenSnapshot()` 
+or the iterator's `remove()` method.
 
 ## Duplicate Path Handling (Overwrite Behavior)
 
@@ -213,7 +218,7 @@ In current production code, this is never needed because:
 
 **New LinkedHashMap behavior:**
 - Calling `addChild(file)` with an existing path **replaces** the old entry
-- This is actually **more correct** behavior for a file system model
+- This is more appropriate behavior for a file system model where paths are unique
 
 ### Impact on "Pending" Files
 
@@ -225,8 +230,8 @@ When creating a file upload:
 
 **Edge case analysis:**
 - **Duplicate upload attempts:** If user uploads `file.txt` twice rapidly, the second pending 
-  file replaces the first. This is correct - only one upload should be in progress.
-- **Overwriting existing file:** Not a concern because:
+  file replaces the first. This is a design decision: we show the most recent pending state.
+- **Overwriting existing file:** Not a typical concern because:
   - `createDocument` is for **new** files (Android's file picker)
   - `openDocumentWrite` is for **existing** files (writes to existing entry)
 - **Upload failure:** If upload fails, `removeChild(file)` removes only the pending file. 
