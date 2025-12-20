@@ -1,4 +1,4 @@
-<img align="left" width="80" height="80" src="app/src/main/res/mipmap-xxxhdpi/ic_launcher.webp"
+<img align="left" width="80" height="80" src="docs/icon.svg"
 alt="App icon">
 
 # WebDAV Provider [![Build](https://github.com/BTreeMap/WebDAV/actions/workflows/build.yml/badge.svg)](https://github.com/BTreeMap/WebDAV/actions/workflows/build.yml)

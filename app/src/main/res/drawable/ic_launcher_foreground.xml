@@ -4,18 +4,19 @@
     android:height="108dp"
     android:viewportWidth="24"
     android:viewportHeight="24">
-  <group android:scaleX="0.80"
-      android:scaleY="0.80"
-      android:translateX="2.40"
-      android:translateY="2.40">
+  <group
+      android:scaleX="0.60"
+      android:scaleY="0.60"
+      android:pivotX="12"
+      android:pivotY="12">
     <path
         android:pathData="M12,4C9.11,4 6.6,5.64 5.35,8.04 2.34,8.36 0,10.91 0,14c0,3.31 2.69,6 6,6h13c2.76,0 5,-2.24 5,-5 0,-2.64 -2.05,-4.78 -4.65,-4.96C18.67,6.59 15.64,4 12,4Z">
       <aapt:attr name="android:fillColor">
         <gradient
             android:type="linear"
-            android:startX="0"
+            android:startX="12"
             android:startY="4"
-            android:endX="24"
+            android:endX="12"
             android:endY="20"
             android:startColor="#3399FF"
             android:endColor="#003366"/>
