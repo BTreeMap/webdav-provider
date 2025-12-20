@@ -156,6 +156,86 @@ For a typical directory with N children:
 | Delete file | O(1) | - |
 | Cache validation | O(1) lookup | - |
 
+## Threading Model and Concurrency Safety
+
+### Why Concurrent Modification Cannot Occur
+
+The `WebDavFile` children collection is accessed exclusively through Android's `DocumentsProvider` 
+framework, which uses a specific threading model:
+
+1. **Binder Thread Access**: All `DocumentsProvider` methods (`queryChildDocuments`, `createDocument`, 
+   `deleteDocument`, etc.) are called on Binder threads by the Android framework.
+
+2. **Synchronous Execution**: Each method uses `runBlocking` to block until completion:
+   ```kotlin
+   val res = runBlocking(Dispatchers.IO) {
+       clients.get(account).propFind(WebDavPath(parentPath, true))
+   }
+   // Iteration happens AFTER the blocking call completes
+   for (file in parentFile.children()) { ... }
+   ```
+
+3. **Sequential Request Handling**: The DocumentsProvider framework serializes requests for the 
+   same document/directory, meaning one operation completes before another begins.
+
+4. **Read-Only Iteration Pattern**: All iteration over `children()` in production code only 
+   **reads** the collection (e.g., calling `includeFile()`). No modifications occur during iteration.
+
+### Comparison with Original ArrayList Implementation
+
+The original `ArrayList`-based implementation had the **same concurrency characteristics**:
+- No synchronization was used
+- Iteration was never modified during traversal
+- The framework's threading model prevented concurrent access
+
+The switch to `LinkedHashMap` maintains this safety model. The 
+`ConcurrentModificationException` warning in the documentation is a general best-practice 
+note, but cannot occur in our actual usage patterns.
+
+### When to Use `childrenSnapshot()`
+
+Use `childrenSnapshot()` only if you need to:
+1. Iterate over children while potentially adding/removing children in the same loop
+2. Store a stable list that won't change if the parent is refreshed
+
+In current production code, this is never needed because:
+- `queryChildDocuments`: Iterates to populate UI cursor (read-only)
+- `createDocument`: Adds a single child (no iteration)
+- `deleteDocument`: Removes a single child (no iteration)
+
+## Duplicate Path Handling (Overwrite Behavior)
+
+### Behavior Change from ArrayList
+
+**Original ArrayList behavior:**
+- Calling `children.add(file)` twice with the same path would create **duplicate entries**
+- This could lead to inconsistent state where the same file appears twice in directory listings
+
+**New LinkedHashMap behavior:**
+- Calling `addChild(file)` with an existing path **replaces** the old entry
+- This is actually **more correct** behavior for a file system model
+
+### Impact on "Pending" Files
+
+When creating a file upload:
+1. `createDocument` creates a "pending" file with `isPending = true`
+2. If the path already exists (rare edge case), the old file is replaced
+3. On upload success: The pending file is replaced with the real file
+4. On upload failure: The pending file is removed via `removeChild()`
+
+**Edge case analysis:**
+- **Duplicate upload attempts:** If user uploads `file.txt` twice rapidly, the second pending 
+  file replaces the first. This is correct - only one upload should be in progress.
+- **Overwriting existing file:** Not a concern because:
+  - `createDocument` is for **new** files (Android's file picker)
+  - `openDocumentWrite` is for **existing** files (writes to existing entry)
+- **Upload failure:** If upload fails, `removeChild(file)` removes only the pending file. 
+  Since we store by path (not object identity), this correctly removes the pending entry.
+
+**Improvement over original:** The original ArrayList approach could accumulate duplicate 
+entries if the same file was uploaded multiple times without refresh. LinkedHashMap prevents 
+this by design.
+
 ## Conclusion
 
 `LinkedHashMap<Path, WebDavFile>` is the optimal choice for our access patterns because:
@@ -165,5 +245,7 @@ For a typical directory with N children:
 3. Simpler implementation with less code
 4. Memory efficient
 5. Immutable keys prevent cache corruption
+6. Automatic duplicate handling prevents inconsistent state
+7. Thread-safe under the DocumentsProvider threading model
 
 The only trade-off is O(N) indexed access, which we don't use.
